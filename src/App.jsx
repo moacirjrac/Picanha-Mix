@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://jmddqkgunjmyzvxlsoyh.supabase.co";
@@ -49,12 +49,12 @@ const hoje = () => new Date().toISOString().slice(0,10);
 // Máscara de moeda brasileira
 function useMoeda(inicial="") {
   const [val,setVal] = useState(inicial);
-  function onChange(e) {
+  const onChange = useCallback((e) => {
     let n = e.target.value.replace(/\D/g,"");
     if(!n){ setVal(""); return; }
     n = (parseInt(n,10)/100).toFixed(2);
     setVal(Number(n).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}));
-  }
+  },[]);
   const numerico = parseFloat(val.replace(/\./g,"").replace(",","."))||0;
   return [val,onChange,numerico,setVal];
 }
@@ -518,7 +518,7 @@ function Financeiro({usuario}) {
         <div><label style={S.lbl}>🔑 Chave PIX (para copiar na hora do pagamento)</label><input style={{...S.inp,fontFamily:"monospace"}} placeholder="CPF, e-mail, telefone ou chave aleatória" value={form.chave_pix} onChange={e=>setForm(f=>({...f,chave_pix:e.target.value}))}/></div>
       )}
       {(form.forma_pagamento==="BOLETO")&&(
-        <div><label style={S.lbl}>📊 Código de Barras (use o leitor ou digite)</label><input style={{...S.inp,fontFamily:"monospace",letterSpacing:"0.05em"}} placeholder="000000000000000000000000000000000000000000000" value={form.codigo_barras} onChange={e=>setForm(f=>({...f,codigo_barras:e.target.value}))}/></div>
+        <div><label style={S.lbl}>📊 Código de Barras (use o leitor ou digite)</label><input style={{...S.inp,fontFamily:"monospace",letterSpacing:"0.05em"}} placeholder="000000000000000000000000000000000000000000000" value={form.codigo_barras} onChange={e=>{const v=e.target.value; setForm(f=>({...f,codigo_barras:v}));}}/>
       )}
     </div>
   );
