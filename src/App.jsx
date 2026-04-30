@@ -45,6 +45,31 @@ const pct  = v => v!=null ? `${Number(v).toFixed(1)}%` : "—";
 const sem  = (v,m=30) => v<=m?"#2ECC71":v<=m+5?"#F39C12":"#E74C3C";
 const hoje = () => new Date().toISOString().slice(0,10);
 
+// Formata data ISO para DD/MM/AAAA
+const fmtData = d => {
+  if(!d) return "—";
+  const s = typeof d === "string" ? d.slice(0,10) : d;
+  const [y,m,dd] = s.split("-");
+  return `${dd}/${m}/${y}`;
+};
+
+// Status calculado automaticamente
+function calcStatus(conta) {
+  if(conta.status==="PAGO") return "PAGO";
+  if(conta.status==="PROBLEMA NO PAGAMENTO") return "PROBLEMA NO PAGAMENTO";
+  if(!conta.vencimento) return "A VENCER";
+  const venc = new Date(conta.vencimento+"T00:00:00");
+  const hj   = new Date(); hj.setHours(0,0,0,0);
+  return venc < hj ? "EM ATRASO" : "A VENCER";
+}
+
+function corStatus(s) {
+  if(s==="PAGO")                  return "#2ECC71";
+  if(s==="EM ATRASO")             return "#E74C3C";
+  if(s==="PROBLEMA NO PAGAMENTO") return "#9B59B6";
+  return "#3A8FE8"; // A VENCER
+}
+
 function useMoeda(inicial="") {
   const [val,setVal] = useState(inicial);
   const onChange = useCallback((e) => {
@@ -53,7 +78,7 @@ function useMoeda(inicial="") {
     n = (parseInt(n,10)/100).toFixed(2);
     setVal(Number(n).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}));
   },[]);
-  const numerico = parseFloat(val.replace(/\./g,"").replace(",","."))||0;
+  const numerico = parseFloat((val||"").replace(/\./g,"").replace(",","."))||0;
   return [val,onChange,numerico,setVal];
 }
 
@@ -70,7 +95,7 @@ const S = {
   g:    n=>({ display:"grid", gridTemplateColumns:`repeat(${n},1fr)`, gap:16 }),
   kV:   { fontSize:24, fontWeight:700, lineHeight:1 },
   kL:   { fontSize:12, color:"#5A6070", marginTop:4 },
-  btn:  v=>({ padding:"8px 16px", borderRadius:8, border:"none", cursor:"pointer", fontSize:13, fontWeight:600, background:v==="primary"?"#FF6B35":v==="danger"?"#E74C3C":v==="success"?"#2ECC71":v==="ghost"?"transparent":"#252A35", color:v==="ghost"?"#8090A8":"#fff" }),
+  btn:  v=>({ padding:"8px 16px", borderRadius:8, border:"none", cursor:"pointer", fontSize:13, fontWeight:600, background:v==="primary"?"#FF6B35":v==="danger"?"#E74C3C":v==="success"?"#2ECC71":v==="purple"?"#9B59B6":v==="ghost"?"transparent":"#252A35", color:v==="ghost"?"#8090A8":"#fff" }),
   inp:  { background:"#0F1117", border:"1px solid #252A35", borderRadius:8, padding:"10px 12px", color:"#E8E8E8", fontSize:13, width:"100%", outline:"none", boxSizing:"border-box", height:40 },
   sel:  { background:"#0F1117", border:"1px solid #252A35", borderRadius:8, padding:"10px 12px", color:"#E8E8E8", fontSize:13, width:"100%", outline:"none", height:40 },
   lbl:  { fontSize:12, color:"#8090A8", marginBottom:4, display:"block" },
@@ -78,6 +103,7 @@ const S = {
   th:   { textAlign:"left", padding:"10px 12px", color:"#5A6070", fontSize:11, fontWeight:600, textTransform:"uppercase", borderBottom:"1px solid #252A35" },
   td:   { padding:"10px 12px", borderBottom:"1px solid #1A1F2B", color:"#C8D0DC" },
   badge:c=>({ display:"inline-block", padding:"3px 8px", borderRadius:4, fontSize:11, fontWeight:600, background:c+"22", color:c }),
+  overlay:{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 },
 };
 
 function Login({onLogin}) {
@@ -139,15 +165,14 @@ function Login({onLogin}) {
     const ocupPct=fat>0?(ocupVal/fat)*100:0;
     const fixosVal=dL.filter(d=>SUBS_FIXOS.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
     const mcEfetiva=fat>0?((fat-cmvVal-cmoVal)/fat)*100:0;
-    const mcEsperada=45;
     const peEfetivo=mcEfetiva>0?fixosVal/(mcEfetiva/100):0;
-    const peEsperado=fixosVal/(mcEsperada/100);
+    const peEsperado=fixosVal/0.45;
     const detCMV={};
     dL.filter(d=>SUBS_CMV.some(s=>d.categoria?.toUpperCase().includes(s))).forEach(d=>{const k=d.categoria||"Outros"; detCMV[k]=(detCMV[k]||0)+Number(d.valor);});
     if(cmvEnvios>0) detCMV["Proteínas (Produção)"]=(detCMV["Proteínas (Produção)"]||0)+cmvEnvios;
     const detCMO={};
     dL.filter(d=>SUBS_CMO.some(s=>d.categoria?.toUpperCase().includes(s))).forEach(d=>{const k=d.categoria||"Outros"; detCMO[k]=(detCMO[k]||0)+Number(d.valor);});
-    return {fat,cmvVal,cmvPct,cmoVal,cmoPct,primeVal,primePct,lugVal,lugPct,ocupVal,ocupPct,fixosVal,mcEfetiva,mcEsperada,peEfetivo,peEsperado,detCMV,detCMO};
+    return {fat,cmvVal,cmvPct,cmoVal,cmoPct,primeVal,primePct,lugVal,lugPct,ocupVal,ocupPct,fixosVal,mcEfetiva,peEfetivo,peEsperado,detCMV,detCMO};
   }
 
   const [showDetCMV,setSDC]=useState(false); const [showDetCMO,setSDO]=useState(false);
@@ -218,7 +243,7 @@ function Login({onLogin}) {
             <div style={{fontSize:18,marginBottom:6}}>💹</div>
             <div style={{display:"flex",gap:16}}>
               <div><div style={{...S.kV,color:"#2ECC71",fontSize:18}}>{d.mcEfetiva.toFixed(1)}%</div><div style={{fontSize:11,color:"#5A6070"}}>MC Efetiva</div></div>
-              <div><div style={{...S.kV,color:"#3A8FE8",fontSize:18}}>{d.mcEsperada}%</div><div style={{fontSize:11,color:"#5A6070"}}>MC Esperada</div></div>
+              <div><div style={{...S.kV,color:"#3A8FE8",fontSize:18}}>45%</div><div style={{fontSize:11,color:"#5A6070"}}>MC Esperada</div></div>
             </div>
             <div style={S.kL}>Margem de Contribuição</div>
           </div>
@@ -372,8 +397,7 @@ function Financeiro({usuario}) {
       </>}
     </div>
   );
-}// ─── FORM CONTAS (fora do componente Contas para evitar re-render) ─────────────
-function FormContas({form,setForm,valF,onValF,grupos,subgrupos,fornecedores,editId,sv,onSalvar,onCancelar}) {
+}function FormContas({form,setForm,valF,onValF,grupos,subgrupos,fornecedores,editId,sv,onSalvar,onCancelar}) {
   return (
     <div style={{...S.card,marginBottom:24,borderColor:editId?"#3A8FE8":"#FF6B35"}}>
       <div style={S.cT}>{editId?"✏️ Editar Conta":"+ Nova Conta"}</div>
@@ -449,10 +473,148 @@ function FormContas({form,setForm,valF,onValF,grupos,subgrupos,fornecedores,edit
   );
 }
 
+function ModalVerConta({conta, onClose}) {
+  const status = calcStatus(conta);
+  const cor    = corStatus(status);
+  const campos = [
+    { label:"Fornecedor",       val:conta.fornecedor },
+    { label:"Loja",             val:conta.loja_id },
+    { label:"Grupo",            val:conta.grupo },
+    { label:"Subgrupo / Tipo",  val:conta.tipo },
+    { label:"Valor",            val:fmt(Number(conta.valor)) },
+    { label:"Vencimento",       val:fmtData(conta.vencimento) },
+    { label:"Data de Chegada",  val:fmtData(conta.data_chegada) },
+    { label:"Forma Pagamento",  val:conta.forma_pagamento },
+    { label:"Nº NF / Boleto",   val:conta.numero_nf },
+    { label:"Conferido por",    val:conta.conferido_por },
+    { label:"Inserido por",     val:conta.inserido_por },
+    { label:"Data Pagamento",   val:fmtData(conta.data_pagamento) },
+    { label:"Banco",            val:conta.banco },
+  ];
+  return (
+    <div style={S.overlay}>
+      <div style={{...S.card, width:560, maxHeight:"85vh", overflowY:"auto", borderColor:cor}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <div>
+            <div style={{fontSize:16,fontWeight:700}}>{conta.fornecedor}</div>
+            <span style={S.badge(cor)}>{status}</span>
+          </div>
+          <button style={{...S.btn("ghost"),fontSize:20}} onClick={onClose}>✕</button>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+          {campos.map(c=>c.val?(
+            <div key={c.label} style={{background:"#0F1117",borderRadius:8,padding:"10px 12px"}}>
+              <div style={{fontSize:11,color:"#5A6070",marginBottom:2}}>{c.label}</div>
+              <div style={{fontSize:13,fontWeight:600}}>{c.val}</div>
+            </div>
+          ):null)}
+        </div>
+
+        {conta.chave_pix&&(
+          <div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
+            <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>🔑 Chave PIX</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:"monospace",fontSize:13}}>{conta.chave_pix}</span>
+              <button style={{...S.btn("primary"),padding:"4px 10px",fontSize:11}} onClick={()=>navigator.clipboard.writeText(conta.chave_pix)}>📋 Copiar</button>
+            </div>
+          </div>
+        )}
+
+        {conta.codigo_barras&&(
+          <div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
+            <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>📊 Código de Barras</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <span style={{fontFamily:"monospace",fontSize:11,wordBreak:"break-all"}}>{conta.codigo_barras}</span>
+              <button style={{...S.btn("primary"),padding:"4px 10px",fontSize:11,whiteSpace:"nowrap"}} onClick={()=>navigator.clipboard.writeText(conta.codigo_barras)}>📋 Copiar</button>
+            </div>
+          </div>
+        )}
+
+        {conta.comprovante_url&&(
+          <a href={conta.comprovante_url} target="_blank" rel="noreferrer"
+            style={{display:"block",background:"#0F1117",borderRadius:8,padding:12,marginBottom:12,color:"#3A8FE8",fontSize:13}}>
+            📎 Ver Comprovante
+          </a>
+        )}
+
+        <button style={{...S.btn("secondary"),width:"100%"}} onClick={onClose}>Fechar</button>
+      </div>
+    </div>
+  );
+}
+
+function ModalPagar({conta, onConfirmar, onCancelar, sv}) {
+  const [fp,setFp]=useState({data_pagamento:hoje(),banco:"BANCO STONE"});
+  const [arq,setArq]=useState(null);
+  const [problema,setProblema]=useState(false);
+
+  return (
+    <div style={S.overlay}>
+      <div style={{...S.card,width:480,borderColor:"#2ECC71"}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>
+          {problema?"⚠️ Registrar Problema":"✅ Confirmar Pagamento"}
+        </div>
+        <div style={{fontSize:13,color:"#5A6070",marginBottom:16}}>
+          {conta?.fornecedor} — {fmt(Number(conta?.valor))} · vence {fmtData(conta?.vencimento)}
+        </div>
+
+        {conta?.chave_pix&&!problema&&(
+          <div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
+            <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>🔑 Chave PIX</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:"monospace",fontSize:13}}>{conta.chave_pix}</span>
+              <button style={{...S.btn("primary"),padding:"4px 10px",fontSize:11}} onClick={()=>navigator.clipboard.writeText(conta.chave_pix)}>📋 Copiar</button>
+            </div>
+          </div>
+        )}
+
+        {conta?.codigo_barras&&!problema&&(
+          <div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
+            <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>📊 Código de Barras</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <span style={{fontFamily:"monospace",fontSize:11,wordBreak:"break-all"}}>{conta.codigo_barras}</span>
+              <button style={{...S.btn("primary"),padding:"4px 10px",fontSize:11,whiteSpace:"nowrap"}} onClick={()=>navigator.clipboard.writeText(conta.codigo_barras)}>📋 Copiar</button>
+            </div>
+          </div>
+        )}
+
+        {!problema&&<>
+          <div style={{marginBottom:12}}><label style={S.lbl}>Data do Pagamento</label>
+            <input style={S.inp} type="date" value={fp.data_pagamento} onChange={e=>setFp(f=>({...f,data_pagamento:e.target.value}))}/>
+          </div>
+          <div style={{marginBottom:12}}><label style={S.lbl}>Banco</label>
+            <select style={S.sel} value={fp.banco} onChange={e=>setFp(f=>({...f,banco:e.target.value}))}>
+              {["BANCO STONE","BANCO IFOOD","BANCO DO BRASIL","CAIXA","ITAÚ","BRADESCO","SICOOB"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div style={{marginBottom:16}}><label style={S.lbl}>📎 Comprovante</label>
+            <input style={{...S.inp,cursor:"pointer"}} type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={e=>setArq(e.target.files[0])}/>
+          </div>
+        </>}
+
+        {problema&&(
+          <div style={{background:"#1A0A1A",border:"1px solid #9B59B6",borderRadius:8,padding:12,marginBottom:16,fontSize:13,color:"#C8A0E8"}}>
+            O status será marcado como <strong>PROBLEMA NO PAGAMENTO</strong>. O financeiro poderá editar e corrigir as informações de pagamento.
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {!problema&&<button style={{...S.btn("primary"),flex:1}} onClick={()=>onConfirmar("PAGO",fp,arq)} disabled={sv}>{sv?"Salvando…":"✅ Confirmar Pago"}</button>}
+          {!problema&&<button style={{...S.btn("purple"),flex:1}} onClick={()=>setProblema(true)}>⚠️ Problema no Pagamento</button>}
+          {problema&&<button style={{...S.btn("purple"),flex:1}} onClick={()=>onConfirmar("PROBLEMA NO PAGAMENTO",fp,arq)} disabled={sv}>{sv?"Salvando…":"Confirmar Problema"}</button>}
+          {problema&&<button style={S.btn("secondary")} onClick={()=>setProblema(false)}>← Voltar</button>}
+          <button style={S.btn("secondary")} onClick={onCancelar}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Contas({usuario}) {
   const [contas,setC]=useState([]); const [load,setL]=useState(true); const [show,setShow]=useState(false);
-  const [pagId,setPId]=useState(null); const [editId,setEditId]=useState(null);
-  const [fSt,setFSt]=useState(""); const [fLj,setFLj]=useState(""); const [sv,setSv]=useState(false); const [arq,setArq]=useState(null);
+  const [pagId,setPId]=useState(null); const [editId,setEditId]=useState(null); const [verConta,setVerConta]=useState(null);
+  const [fSt,setFSt]=useState(""); const [fLj,setFLj]=useState(""); const [sv,setSv]=useState(false);
   const [fornecedores,setForn]=useState([]); const [grupos,setGrupos]=useState([]); const [subgrupos,setSubs]=useState([]);
   const [valF,onValF,numF,setValF]=useMoeda();
   const FORM_VAZIO={fornecedor_id:"",loja_id:"",grupo_id:"",subgrupo_id:"",tipo:"",vencimento:"",forma_pagamento:"PIX",numero_nf:"",chave_pix:"",codigo_barras:"",conferido_por:"",data_chegada:""};
@@ -465,17 +627,16 @@ function Contas({usuario}) {
     supabase.from("grupos_despesa").select("*").eq("ativo",true).then(({data})=>setGrupos(data||[]));
   },[fSt,fLj]);
 
-  useEffect(()=>{
-    if(form.grupo_id) supabase.from("subgrupos_despesa").select("*").eq("grupo_id",form.grupo_id).then(({data})=>setSubs(data||[]));
-    else setSubs([]);
-  },[form.grupo_id]);
+  useEffect(()=>{ if(form.grupo_id) supabase.from("subgrupos_despesa").select("*").eq("grupo_id",form.grupo_id).then(({data})=>setSubs(data||[])); else setSubs([]); },[form.grupo_id]);
 
   async function carregar(){
     setL(true);
     let q=supabase.from("contas_pagar").select("*").order("vencimento",{ascending:true});
-    if(fSt)q=q.eq("status",fSt);
-    if(fLj)q=q.ilike("loja_id",`%${fLj}%`);
-    const{data}=await q; setC(data||[]); setL(false);
+    if(fLj) q=q.ilike("loja_id",`%${fLj}%`);
+    const{data}=await q;
+    let resultado=data||[];
+    if(fSt) resultado=resultado.filter(c=>calcStatus(c)===fSt);
+    setC(resultado); setL(false);
   }
 
   async function salvarNova(){
@@ -516,21 +677,24 @@ function Contas({usuario}) {
     setShow(true); window.scrollTo({top:0,behavior:"smooth"});
   }
 
-  async function excluir(id){
-    if(!window.confirm("Excluir esta conta?"))return;
-    await supabase.from("contas_pagar").delete().eq("id",id); carregar();
-  }
+  async function excluir(id){ if(!window.confirm("Excluir esta conta?"))return; await supabase.from("contas_pagar").delete().eq("id",id); carregar();}
 
-  async function pagar(id){
+  async function confirmarPagamento(novoStatus, fp, arq){
     setSv(true); let url=null;
-    if(arq){const ext=arq.name.split(".").pop(); const path=`comprovantes/${id}.${ext}`; await supabase.storage.from("documentos").upload(path,arq,{upsert:true}); const{data:pub}=supabase.storage.from("documentos").getPublicUrl(path); url=pub.publicUrl;}
-    await supabase.from("contas_pagar").update({status:"PAGO",data_pagamento:fp.data_pagamento,banco:fp.banco,...(url&&{comprovante_url:url})}).eq("id",id);
-    setPId(null); setArq(null); carregar(); setSv(false);
+    if(arq){const ext=arq.name.split(".").pop(); const path=`comprovantes/${pagId}.${ext}`; await supabase.storage.from("documentos").upload(path,arq,{upsert:true}); const{data:pub}=supabase.storage.from("documentos").getPublicUrl(path); url=pub.publicUrl;}
+    await supabase.from("contas_pagar").update({
+      status:novoStatus,
+      data_pagamento:novoStatus==="PAGO"?fp.data_pagamento:null,
+      banco:novoStatus==="PAGO"?fp.banco:null,
+      ...(url&&{comprovante_url:url})
+    }).eq("id",pagId);
+    setPId(null); carregar(); setSv(false);
   }
 
-  const pend=contas.filter(c=>c.status==="PENDENTE");
-  const pagos=contas.filter(c=>c.status==="PAGO");
   const contaAtual=contas.find(c=>c.id===pagId);
+  const totPend=contas.filter(c=>calcStatus(c)==="A VENCER").reduce((s,c)=>s+Number(c.valor),0);
+  const totAtraso=contas.filter(c=>calcStatus(c)==="EM ATRASO").reduce((s,c)=>s+Number(c.valor),0);
+  const totPago=contas.filter(c=>calcStatus(c)==="PAGO").reduce((s,c)=>s+Number(c.valor),0);
 
   return (
     <div>
@@ -540,74 +704,61 @@ function Contas({usuario}) {
           <button style={S.btn("primary")} onClick={()=>{setShow(!show);setEditId(null);setValF("");setForm(FORM_VAZIO);}}>+ Nova Conta</button>
         )}
       </div>
-      <div style={{...S.g(3),marginBottom:24}}>
-        <div style={S.card}><div style={S.cT}>Pendente</div><div style={{...S.kV,color:"#F39C12"}}>{fmt(pend.reduce((s,c)=>s+Number(c.valor),0))}</div><div style={S.kL}>{pend.length} registros</div></div>
-        <div style={S.card}><div style={S.cT}>Pago</div><div style={{...S.kV,color:"#2ECC71"}}>{fmt(pagos.reduce((s,c)=>s+Number(c.valor),0))}</div><div style={S.kL}>{pagos.length} registros</div></div>
+
+      <div style={{...S.g(4),marginBottom:24}}>
+        <div style={S.card}><div style={S.cT}>A Vencer</div><div style={{...S.kV,color:"#3A8FE8"}}>{fmt(totPend)}</div><div style={S.kL}>{contas.filter(c=>calcStatus(c)==="A VENCER").length} registros</div></div>
+        <div style={S.card}><div style={S.cT}>Em Atraso</div><div style={{...S.kV,color:"#E74C3C"}}>{fmt(totAtraso)}</div><div style={S.kL}>{contas.filter(c=>calcStatus(c)==="EM ATRASO").length} registros</div></div>
+        <div style={S.card}><div style={S.cT}>Pago</div><div style={{...S.kV,color:"#2ECC71"}}>{fmt(totPago)}</div><div style={S.kL}>{contas.filter(c=>calcStatus(c)==="PAGO").length} registros</div></div>
         <div style={S.card}><div style={S.cT}>Total</div><div style={S.kV}>{fmt(contas.reduce((s,c)=>s+Number(c.valor),0))}</div><div style={S.kL}>{contas.length} registros</div></div>
       </div>
 
       {show&&<FormContas form={form} setForm={setForm} valF={valF} onValF={onValF} grupos={grupos} subgrupos={subgrupos} fornecedores={fornecedores} editId={editId} sv={sv} onSalvar={editId?salvarEdicao:salvarNova} onCancelar={()=>{setEditId(null);setShow(false);setValF("");setForm(FORM_VAZIO);}}/>}
 
-      {pagId&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
-        <div style={{...S.card,width:460,borderColor:"#2ECC71"}}>
-          <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>✅ Confirmar Pagamento</div>
-          <div style={{fontSize:13,color:"#5A6070",marginBottom:16}}>{contaAtual?.fornecedor} — {fmt(Number(contaAtual?.valor))}</div>
-          {contaAtual?.chave_pix&&<div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
-            <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>🔑 Chave PIX</div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontFamily:"monospace",fontSize:13}}>{contaAtual.chave_pix}</span>
-              <button style={{...S.btn("primary"),padding:"4px 10px",fontSize:11}} onClick={()=>navigator.clipboard.writeText(contaAtual.chave_pix)}>📋 Copiar</button>
-            </div>
-          </div>}
-          {contaAtual?.codigo_barras&&<div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
-            <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>📊 Código de Barras</div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-              <span style={{fontFamily:"monospace",fontSize:11,wordBreak:"break-all"}}>{contaAtual.codigo_barras}</span>
-              <button style={{...S.btn("primary"),padding:"4px 10px",fontSize:11,whiteSpace:"nowrap"}} onClick={()=>navigator.clipboard.writeText(contaAtual.codigo_barras)}>📋 Copiar</button>
-            </div>
-          </div>}
-          <div style={{marginBottom:12}}><label style={S.lbl}>Data do Pagamento</label><input style={S.inp} type="date" value={fp.data_pagamento} onChange={e=>setFp(f=>({...f,data_pagamento:e.target.value}))}/></div>
-          <div style={{marginBottom:12}}><label style={S.lbl}>Banco</label>
-            <select style={S.sel} value={fp.banco} onChange={e=>setFp(f=>({...f,banco:e.target.value}))}>
-              {["BANCO STONE","BANCO IFOOD","BANCO DO BRASIL","CAIXA","ITAÚ","BRADESCO","SICOOB"].map(b=><option key={b}>{b}</option>)}
-            </select>
-          </div>
-          <div style={{marginBottom:16}}><label style={S.lbl}>📎 Comprovante</label><input style={{...S.inp,cursor:"pointer"}} type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={e=>setArq(e.target.files[0])}/></div>
-          <div style={{display:"flex",gap:8}}>
-            <button style={{...S.btn("primary"),flex:1}} onClick={()=>pagar(pagId)} disabled={sv}>{sv?"Salvando…":"Confirmar Pago"}</button>
-            <button style={{...S.btn("secondary"),flex:1}} onClick={()=>setPId(null)}>Cancelar</button>
-          </div>
-        </div>
-      </div>}
+      {verConta&&<ModalVerConta conta={verConta} onClose={()=>setVerConta(null)}/>}
+
+      {pagId&&contaAtual&&<ModalPagar conta={contaAtual} onConfirmar={confirmarPagamento} onCancelar={()=>setPId(null)} sv={sv}/>}
 
       <div style={S.card}>
-        <div style={{display:"flex",gap:8,marginBottom:16}}>
-          <select style={{...S.sel,width:160}} value={fSt} onChange={e=>setFSt(e.target.value)}><option value="">Todos</option><option value="PENDENTE">Pendente</option><option value="PAGO">Pago</option></select>
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          <select style={{...S.sel,width:180}} value={fSt} onChange={e=>setFSt(e.target.value)}>
+            <option value="">Todos os status</option>
+            <option value="A VENCER">A Vencer</option>
+            <option value="EM ATRASO">Em Atraso</option>
+            <option value="PAGO">Pago</option>
+            <option value="PROBLEMA NO PAGAMENTO">Problema no Pagamento</option>
+          </select>
           <input style={{...S.inp,width:200}} placeholder="Filtrar por loja…" value={fLj} onChange={e=>setFLj(e.target.value)}/>
         </div>
         {load?<div style={{color:"#5A6070"}}>Carregando…</div>:(
-        <table style={S.tbl}><thead><tr>{["Fornecedor","Loja","Grupo","Valor","Vencimento","Forma","Inserido por","Status","Ações"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-        <tbody>{contas.map(c=>(
-          <tr key={c.id}>
-            <td style={{...S.td,fontWeight:600}}>{c.fornecedor}</td>
-            <td style={S.td}>{c.loja_id}</td>
-            <td style={S.td}>{c.grupo}</td>
-            <td style={{...S.td,fontWeight:700}}>{fmt(Number(c.valor))}</td>
-            <td style={S.td}>{c.vencimento}</td>
-            <td style={S.td}><span style={S.badge(c.forma_pagamento==="PIX"?"#2ECC71":c.forma_pagamento==="BOLETO"?"#F39C12":"#3A8FE8")}>{c.forma_pagamento}</span></td>
-            <td style={{...S.td,fontSize:11,color:"#5A6070"}}>{c.inserido_por||"—"}</td>
-            <td style={S.td}><span style={S.badge(c.status==="PAGO"?"#2ECC71":"#F39C12")}>{c.status}</span></td>
-            <td style={S.td}>
-              <div style={{display:"flex",gap:4}}>
-                {c.status==="PENDENTE"&&usuario.perfil==="admin"&&<button style={{...S.btn("primary"),padding:"4px 8px",fontSize:11}} onClick={()=>setPId(c.id)}>Pagar</button>}
-                {c.status==="PAGO"&&<span style={{fontSize:11,color:"#2ECC71"}}>✓ {c.data_pagamento}</span>}
-                <button style={{...S.btn("secondary"),padding:"4px 8px",fontSize:11}} onClick={()=>abrirEdicao(c)}>✏️</button>
-                {usuario.perfil==="admin"&&<button style={{...S.btn("danger"),padding:"4px 8px",fontSize:11}} onClick={()=>excluir(c.id)}>🗑️</button>}
-                {c.comprovante_url&&<a href={c.comprovante_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#3A8FE8"}}>📎</a>}
-              </div>
-            </td>
-          </tr>
-        ))}{contas.length===0&&<tr><td colSpan={9} style={{...S.td,color:"#5A6070",textAlign:"center"}}>Nenhum registro</td></tr>}</tbody>
+        <table style={S.tbl}>
+          <thead><tr>{["Fornecedor","Loja","Grupo","Valor","Vencimento","Forma","Inserido por","Status","Ações"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>{contas.map(c=>{
+            const st=calcStatus(c); const cor=corStatus(st);
+            return(
+            <tr key={c.id}>
+              <td style={{...S.td,fontWeight:600}}>{c.fornecedor}</td>
+              <td style={S.td}>{c.loja_id}</td>
+              <td style={S.td}>{c.grupo}</td>
+              <td style={{...S.td,fontWeight:700}}>{fmt(Number(c.valor))}</td>
+              <td style={S.td}>{fmtData(c.vencimento)}</td>
+              <td style={S.td}><span style={S.badge(c.forma_pagamento==="PIX"?"#2ECC71":c.forma_pagamento==="BOLETO"?"#F39C12":"#3A8FE8")}>{c.forma_pagamento}</span></td>
+              <td style={{...S.td,fontSize:11,color:"#5A6070"}}>{c.inserido_por||"—"}</td>
+              <td style={S.td}><span style={S.badge(cor)}>{st}</span></td>
+              <td style={S.td}>
+                <div style={{display:"flex",gap:4}}>
+                  <button style={{...S.btn("ghost"),padding:"4px 8px",fontSize:13}} title="Visualizar" onClick={()=>setVerConta(c)}>👁️</button>
+                  {(st==="A VENCER"||st==="EM ATRASO"||st==="PROBLEMA NO PAGAMENTO")&&usuario.perfil==="admin"&&(
+                    <button style={{...S.btn("primary"),padding:"4px 8px",fontSize:11}} onClick={()=>setPId(c.id)}>Pagar</button>
+                  )}
+                  {st==="PAGO"&&<span style={{fontSize:11,color:"#2ECC71"}}>✓ {fmtData(c.data_pagamento)}</span>}
+                  <button style={{...S.btn("secondary"),padding:"4px 8px",fontSize:11}} onClick={()=>abrirEdicao(c)}>✏️</button>
+                  {usuario.perfil==="admin"&&<button style={{...S.btn("danger"),padding:"4px 8px",fontSize:11}} onClick={()=>excluir(c.id)}>🗑️</button>}
+                </div>
+              </td>
+            </tr>
+          );})}
+          {contas.length===0&&<tr><td colSpan={9} style={{...S.td,color:"#5A6070",textAlign:"center"}}>Nenhum registro</td></tr>}
+          </tbody>
         </table>)}
       </div>
     </div>
