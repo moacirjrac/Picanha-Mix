@@ -40,70 +40,68 @@ const SUBS_LUZ   = ["ENERGIA","ÁGUA","GÁS DE COZINHA"];
 const SUBS_OCUP  = ["ALUGUEL","CONDOMÍNIO","IPTU"];
 const SUBS_FIXOS = [...SUBS_CMO,"ALUGUEL","CONDOMÍNIO","IPTU","ENERGIA","ÁGUA","INTERNET","SISTEMA","GÁS DE COZINHA","CELULAR","DETETIZAÇÃO E DESENTUPIDOR"];
 
-const fmt  = v => v!=null ? Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}) : "—";
-const pct  = v => v!=null ? `${Number(v).toFixed(1)}%` : "—";
-const sem  = (v,m=30) => v<=m?"#2ECC71":v<=m+5?"#F39C12":"#E74C3C";
-const hoje = () => new Date().toISOString().slice(0,10);
+const STATUS_ORDEM = {"PROBLEMA NO PAGAMENTO":0,"EM ATRASO":1,"A VENCER":2,"PAGO":3};
 
-// Formata data ISO para DD/MM/AAAA
-const fmtData = d => {
-  if(!d) return "—";
-  const s = typeof d === "string" ? d.slice(0,10) : d;
-  const [y,m,dd] = s.split("-");
-  return `${dd}/${m}/${y}`;
-};
+const fmt     = v => v!=null ? Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}) : "—";
+const pct     = v => v!=null ? `${Number(v).toFixed(1)}%` : "—";
+const sem     = (v,m=30) => v<=m?"#2ECC71":v<=m+5?"#F39C12":"#E74C3C";
+const hoje    = () => new Date().toISOString().slice(0,10);
+const fmtData = d => { if(!d)return "—"; const s=typeof d==="string"?d.slice(0,10):d; const[y,m,dd]=s.split("-"); return `${dd}/${m}/${y}`; };
+const isImg   = url => url && /\.(jpg|jpeg|png|webp)(\?|$)/i.test(url);
 
-// Status calculado automaticamente
-function calcStatus(conta) {
-  if(conta.status==="PAGO") return "PAGO";
-  if(conta.status==="PROBLEMA NO PAGAMENTO") return "PROBLEMA NO PAGAMENTO";
-  if(!conta.vencimento) return "A VENCER";
-  const venc = new Date(conta.vencimento+"T00:00:00");
-  const hj   = new Date(); hj.setHours(0,0,0,0);
-  return venc < hj ? "EM ATRASO" : "A VENCER";
+function calcStatus(c) {
+  if(c.status==="PAGO") return "PAGO";
+  if(c.status==="PROBLEMA NO PAGAMENTO") return "PROBLEMA NO PAGAMENTO";
+  if(!c.vencimento) return "A VENCER";
+  const v=new Date(c.vencimento+"T00:00:00"); const h=new Date(); h.setHours(0,0,0,0);
+  return v<h?"EM ATRASO":"A VENCER";
 }
-
 function corStatus(s) {
   if(s==="PAGO")                  return "#2ECC71";
   if(s==="EM ATRASO")             return "#E74C3C";
   if(s==="PROBLEMA NO PAGAMENTO") return "#9B59B6";
-  return "#3A8FE8"; // A VENCER
+  return "#3A8FE8";
+}
+function ordenarContas(lista) {
+  return [...lista].sort((a,b)=>{
+    const sa=calcStatus(a), sb=calcStatus(b);
+    const oa=STATUS_ORDEM[sa]??9, ob=STATUS_ORDEM[sb]??9;
+    if(oa!==ob) return oa-ob;
+    const va=a.vencimento||"9999", vb=b.vencimento||"9999";
+    if(va!==vb) return va.localeCompare(vb);
+    return (a.fornecedor||"").localeCompare(b.fornecedor||"");
+  });
 }
 
 function useMoeda(inicial="") {
-  const [val,setVal] = useState(inicial);
-  const onChange = useCallback((e) => {
-    let n = e.target.value.replace(/\D/g,"");
-    if(!n){ setVal(""); return; }
-    n = (parseInt(n,10)/100).toFixed(2);
-    setVal(Number(n).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}));
-  },[]);
-  const numerico = parseFloat((val||"").replace(/\./g,"").replace(",","."))||0;
+  const [val,setVal]=useState(inicial);
+  const onChange=useCallback((e)=>{ let n=e.target.value.replace(/\D/g,""); if(!n){setVal("");return;} n=(parseInt(n,10)/100).toFixed(2); setVal(Number(n).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})); },[]);
+  const numerico=parseFloat((val||"").replace(/\./g,"").replace(",","."))||0;
   return [val,onChange,numerico,setVal];
 }
 
 const S = {
-  app:  { fontFamily:"'DM Sans','Segoe UI',sans-serif", background:"#0F1117", minHeight:"100vh", color:"#E8E8E8", display:"flex" },
-  sb:   { width:220, background:"#161922", borderRight:"1px solid #252A35", display:"flex", flexDirection:"column", padding:"24px 0", position:"fixed", top:0, left:0, bottom:0, zIndex:100, overflowY:"auto" },
-  logo: { padding:"0 20px 24px", borderBottom:"1px solid #252A35", marginBottom:16 },
-  nav:  a=>({ display:"flex", alignItems:"center", gap:10, padding:"10px 20px", cursor:"pointer", fontSize:13, fontWeight:a?600:400, color:a?"#FF6B35":"#8090A8", background:a?"rgba(255,107,53,0.08)":"transparent", borderLeft:a?"2px solid #FF6B35":"2px solid transparent" }),
-  main: { marginLeft:220, flex:1, display:"flex", flexDirection:"column" },
-  top:  { background:"#161922", borderBottom:"1px solid #252A35", padding:"14px 28px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50 },
-  cont: { padding:28, flex:1 },
-  card: { background:"#1C2130", borderRadius:12, border:"1px solid #252A35", padding:20 },
-  cT:   { fontSize:12, fontWeight:600, color:"#5A6070", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 },
-  g:    n=>({ display:"grid", gridTemplateColumns:`repeat(${n},1fr)`, gap:16 }),
-  kV:   { fontSize:24, fontWeight:700, lineHeight:1 },
-  kL:   { fontSize:12, color:"#5A6070", marginTop:4 },
-  btn:  v=>({ padding:"8px 16px", borderRadius:8, border:"none", cursor:"pointer", fontSize:13, fontWeight:600, background:v==="primary"?"#FF6B35":v==="danger"?"#E74C3C":v==="success"?"#2ECC71":v==="purple"?"#9B59B6":v==="ghost"?"transparent":"#252A35", color:v==="ghost"?"#8090A8":"#fff" }),
-  inp:  { background:"#0F1117", border:"1px solid #252A35", borderRadius:8, padding:"10px 12px", color:"#E8E8E8", fontSize:13, width:"100%", outline:"none", boxSizing:"border-box", height:40 },
-  sel:  { background:"#0F1117", border:"1px solid #252A35", borderRadius:8, padding:"10px 12px", color:"#E8E8E8", fontSize:13, width:"100%", outline:"none", height:40 },
-  lbl:  { fontSize:12, color:"#8090A8", marginBottom:4, display:"block" },
-  tbl:  { width:"100%", borderCollapse:"collapse", fontSize:13 },
-  th:   { textAlign:"left", padding:"10px 12px", color:"#5A6070", fontSize:11, fontWeight:600, textTransform:"uppercase", borderBottom:"1px solid #252A35" },
-  td:   { padding:"10px 12px", borderBottom:"1px solid #1A1F2B", color:"#C8D0DC" },
-  badge:c=>({ display:"inline-block", padding:"3px 8px", borderRadius:4, fontSize:11, fontWeight:600, background:c+"22", color:c }),
-  overlay:{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 },
+  app:    { fontFamily:"'DM Sans','Segoe UI',sans-serif", background:"#0F1117", minHeight:"100vh", color:"#E8E8E8", display:"flex" },
+  sb:     { width:220, background:"#161922", borderRight:"1px solid #252A35", display:"flex", flexDirection:"column", padding:"24px 0", position:"fixed", top:0, left:0, bottom:0, zIndex:100, overflowY:"auto" },
+  logo:   { padding:"0 20px 24px", borderBottom:"1px solid #252A35", marginBottom:16 },
+  nav:    a=>({ display:"flex", alignItems:"center", gap:10, padding:"10px 20px", cursor:"pointer", fontSize:13, fontWeight:a?600:400, color:a?"#FF6B35":"#8090A8", background:a?"rgba(255,107,53,0.08)":"transparent", borderLeft:a?"2px solid #FF6B35":"2px solid transparent" }),
+  main:   { marginLeft:220, flex:1, display:"flex", flexDirection:"column" },
+  top:    { background:"#161922", borderBottom:"1px solid #252A35", padding:"14px 28px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50 },
+  cont:   { padding:28, flex:1 },
+  card:   { background:"#1C2130", borderRadius:12, border:"1px solid #252A35", padding:20 },
+  cT:     { fontSize:12, fontWeight:600, color:"#5A6070", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 },
+  g:      n=>({ display:"grid", gridTemplateColumns:`repeat(${n},1fr)`, gap:16 }),
+  kV:     { fontSize:24, fontWeight:700, lineHeight:1 },
+  kL:     { fontSize:12, color:"#5A6070", marginTop:4 },
+  btn:    v=>({ padding:"8px 16px", borderRadius:8, border:"none", cursor:"pointer", fontSize:13, fontWeight:600, background:v==="primary"?"#FF6B35":v==="danger"?"#E74C3C":v==="success"?"#2ECC71":v==="purple"?"#9B59B6":v==="ghost"?"transparent":"#252A35", color:v==="ghost"?"#8090A8":"#fff" }),
+  inp:    { background:"#0F1117", border:"1px solid #252A35", borderRadius:8, padding:"10px 12px", color:"#E8E8E8", fontSize:13, width:"100%", outline:"none", boxSizing:"border-box", height:40 },
+  sel:    { background:"#0F1117", border:"1px solid #252A35", borderRadius:8, padding:"10px 12px", color:"#E8E8E8", fontSize:13, width:"100%", outline:"none", height:40 },
+  lbl:    { fontSize:12, color:"#8090A8", marginBottom:4, display:"block" },
+  tbl:    { width:"100%", borderCollapse:"collapse", fontSize:13 },
+  th:     { textAlign:"left", padding:"10px 12px", color:"#5A6070", fontSize:11, fontWeight:600, textTransform:"uppercase", borderBottom:"1px solid #252A35" },
+  td:     { padding:"10px 12px", borderBottom:"1px solid #1A1F2B", color:"#C8D0DC", verticalAlign:"middle" },
+  badge:  c=>({ display:"inline-block", padding:"3px 8px", borderRadius:4, fontSize:11, fontWeight:600, background:c+"22", color:c }),
+  overlay:{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 },
 };
 
 function Login({onLogin}) {
@@ -167,11 +165,8 @@ function Login({onLogin}) {
     const mcEfetiva=fat>0?((fat-cmvVal-cmoVal)/fat)*100:0;
     const peEfetivo=mcEfetiva>0?fixosVal/(mcEfetiva/100):0;
     const peEsperado=fixosVal/0.45;
-    const detCMV={};
-    dL.filter(d=>SUBS_CMV.some(s=>d.categoria?.toUpperCase().includes(s))).forEach(d=>{const k=d.categoria||"Outros"; detCMV[k]=(detCMV[k]||0)+Number(d.valor);});
-    if(cmvEnvios>0) detCMV["Proteínas (Produção)"]=(detCMV["Proteínas (Produção)"]||0)+cmvEnvios;
-    const detCMO={};
-    dL.filter(d=>SUBS_CMO.some(s=>d.categoria?.toUpperCase().includes(s))).forEach(d=>{const k=d.categoria||"Outros"; detCMO[k]=(detCMO[k]||0)+Number(d.valor);});
+    const detCMV={}; dL.filter(d=>SUBS_CMV.some(s=>d.categoria?.toUpperCase().includes(s))).forEach(d=>{const k=d.categoria||"Outros"; detCMV[k]=(detCMV[k]||0)+Number(d.valor);}); if(cmvEnvios>0) detCMV["Proteínas (Produção)"]=(detCMV["Proteínas (Produção)"]||0)+cmvEnvios;
+    const detCMO={}; dL.filter(d=>SUBS_CMO.some(s=>d.categoria?.toUpperCase().includes(s))).forEach(d=>{const k=d.categoria||"Outros"; detCMO[k]=(detCMO[k]||0)+Number(d.valor);});
     return {fat,cmvVal,cmvPct,cmoVal,cmoPct,primeVal,primePct,lugVal,lugPct,ocupVal,ocupPct,fixosVal,mcEfetiva,peEfetivo,peEsperado,detCMV,detCMO};
   }
 
@@ -266,8 +261,7 @@ function Login({onLogin}) {
             <div style={S.card}>
               <div style={S.cT}>CMV por Loja</div>
               {LOJAS.filter(l=>l.id!=="producao").map(l=>{
-                const ld=calcLoja(l.id);
-                if(ld.fat===0) return null;
+                const ld=calcLoja(l.id); if(ld.fat===0) return null;
                 return(
                   <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #1A1F2B"}}>
                     <span style={{color:l.cor,fontSize:13}}>● {l.nome}</span>
@@ -330,15 +324,11 @@ function Financeiro({usuario}) {
   const [filtro,setFi]=useState({loja:"",data:hoje()});
   const [fv,setFv]=useState({loja_id:"",data:hoje(),canal:""});
   const [fd,setFd]=useState({loja_id:"",data:hoje(),fornecedor_id:"",grupo_id:"",subgrupo_id:"",observacao:""});
-  const [valV,onValV,numV,setValV]=useMoeda();
-  const [valD,onValD,numD,setValD]=useMoeda();
+  const [valV,onValV,numV,setValV]=useMoeda(); const [valD,onValD,numD,setValD]=useMoeda();
   const [sv,setSv]=useState(false);
   const [fornecedores,setForn]=useState([]); const [grupos,setGrupos]=useState([]); const [subgrupos,setSubs]=useState([]);
   const ljs=usuario.perfil==="gerente_loja"?LOJAS.filter(l=>l.id===usuario.loja_id):LOJAS.filter(l=>l.id!=="producao");
-  useEffect(()=>{
-    supabase.from("fornecedores").select("*").eq("ativo",true).order("nome").then(({data})=>setForn(data||[]));
-    supabase.from("grupos_despesa").select("*").eq("ativo",true).then(({data})=>setGrupos(data||[]));
-  },[]);
+  useEffect(()=>{ supabase.from("fornecedores").select("*").eq("ativo",true).order("nome").then(({data})=>setForn(data||[])); supabase.from("grupos_despesa").select("*").eq("ativo",true).then(({data})=>setGrupos(data||[])); },[]);
   useEffect(()=>{ if(fd.grupo_id) supabase.from("subgrupos_despesa").select("*").eq("grupo_id",fd.grupo_id).eq("ativo",true).then(({data})=>setSubs(data||[])); else setSubs([]); },[fd.grupo_id]);
   useEffect(()=>{ ldV(); ldD(); },[filtro]);
   async function ldV(){let q=supabase.from("vendas").select("*").eq("data",filtro.data).order("criado_em",{ascending:false}); if(filtro.loja)q=q.eq("loja_id",filtro.loja); const{data}=await q; setV(data||[]);}
@@ -447,8 +437,8 @@ function Financeiro({usuario}) {
         <div><label style={S.lbl}>Data de Chegada</label>
           <input style={S.inp} type="date" value={form.data_chegada} onChange={e=>setForm(f=>({...f,data_chegada:e.target.value}))}/>
         </div>
-        <div><label style={S.lbl}>📎 Nota Fiscal</label>
-          <input style={{...S.inp,cursor:"pointer"}} type="file" accept=".pdf,.png,.jpg"/>
+        <div><label style={S.lbl}>📎 Cupom / Recibo</label>
+          <input style={{...S.inp,cursor:"pointer"}} type="file" accept=".pdf,.png,.jpg,.jpeg"/>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"end"}}>
           <button style={{...S.btn("primary"),flex:1}} onClick={onSalvar} disabled={sv}>
@@ -458,14 +448,12 @@ function Financeiro({usuario}) {
         </div>
       </div>
       {form.forma_pagamento==="PIX"&&(
-        <div style={{marginTop:4}}>
-          <label style={S.lbl}>🔑 Chave PIX</label>
+        <div style={{marginTop:4}}><label style={S.lbl}>🔑 Chave PIX</label>
           <input style={{...S.inp,fontFamily:"monospace"}} placeholder="CPF, e-mail, telefone ou chave aleatória" value={form.chave_pix} onChange={e=>setForm(f=>({...f,chave_pix:e.target.value}))}/>
         </div>
       )}
       {form.forma_pagamento==="BOLETO"&&(
-        <div style={{marginTop:4}}>
-          <label style={S.lbl}>📊 Código de Barras</label>
+        <div style={{marginTop:4}}><label style={S.lbl}>📊 Código de Barras</label>
           <input style={{...S.inp,fontFamily:"monospace"}} placeholder="Cole ou use o leitor de código de barras" value={form.codigo_barras} onChange={e=>setForm(f=>({...f,codigo_barras:e.target.value}))}/>
         </div>
       )}
@@ -476,33 +464,76 @@ function Financeiro({usuario}) {
 function ModalVerConta({conta, onClose}) {
   const status = calcStatus(conta);
   const cor    = corStatus(status);
+  const [iaResult, setIaResult] = useState(null);
+  const [iaLoad,   setIaLoad]   = useState(false);
+
+  async function conferirComIA() {
+    if(!conta.comprovante_url) return;
+    setIaLoad(true); setIaResult(null);
+    try {
+      const valorLancado = Number(conta.valor);
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          messages:[{
+            role:"user",
+            content:[
+              { type:"image", source:{ type:"url", url:conta.comprovante_url } },
+              { type:"text",  text:`Este é um cupom fiscal ou recibo. O valor lançado no sistema é R$ ${valorLancado.toFixed(2).replace(".",",")}. Por favor:
+1. Identifique o fornecedor/estabelecimento
+2. Identifique a data do documento
+3. Some todos os itens e encontre o valor TOTAL do documento
+4. Compare com o valor lançado: R$ ${valorLancado.toFixed(2).replace(".",",")}
+5. Informe se há DIVERGÊNCIA ou se está CONFIRMADO
+
+Responda em JSON com os campos: fornecedor, data, total_documento, valor_lancado, status ("CONFIRMADO" ou "DIVERGÊNCIA"), observacao` }
+            ]
+          }]
+        })
+      });
+      const data = await resp.json();
+      const txt = data.content?.find(b=>b.type==="text")?.text || "";
+      const clean = txt.replace(/```json|```/g,"").trim();
+      try { setIaResult(JSON.parse(clean)); }
+      catch { setIaResult({status:"ERRO", observacao: txt.slice(0,200)}); }
+    } catch(e) {
+      setIaResult({status:"ERRO", observacao:"Não foi possível analisar o documento."});
+    }
+    setIaLoad(false);
+  }
+
   const campos = [
-    { label:"Fornecedor",       val:conta.fornecedor },
-    { label:"Loja",             val:conta.loja_id },
-    { label:"Grupo",            val:conta.grupo },
-    { label:"Subgrupo / Tipo",  val:conta.tipo },
-    { label:"Valor",            val:fmt(Number(conta.valor)) },
-    { label:"Vencimento",       val:fmtData(conta.vencimento) },
-    { label:"Data de Chegada",  val:fmtData(conta.data_chegada) },
-    { label:"Forma Pagamento",  val:conta.forma_pagamento },
-    { label:"Nº NF / Boleto",   val:conta.numero_nf },
-    { label:"Conferido por",    val:conta.conferido_por },
-    { label:"Inserido por",     val:conta.inserido_por },
-    { label:"Data Pagamento",   val:fmtData(conta.data_pagamento) },
-    { label:"Banco",            val:conta.banco },
+    {label:"Fornecedor",      val:conta.fornecedor},
+    {label:"Loja",            val:conta.loja_id},
+    {label:"Grupo",           val:conta.grupo},
+    {label:"Subgrupo / Tipo", val:conta.tipo},
+    {label:"Valor",           val:fmt(Number(conta.valor))},
+    {label:"Vencimento",      val:fmtData(conta.vencimento)},
+    {label:"Data de Chegada", val:fmtData(conta.data_chegada)},
+    {label:"Forma Pagamento", val:conta.forma_pagamento},
+    {label:"Nº NF / Boleto",  val:conta.numero_nf},
+    {label:"Conferido por",   val:conta.conferido_por},
+    {label:"Inserido por",    val:conta.inserido_por},
+    {label:"Data Pagamento",  val:fmtData(conta.data_pagamento)},
+    {label:"Banco",           val:conta.banco},
   ];
+
   return (
     <div style={S.overlay}>
-      <div style={{...S.card, width:560, maxHeight:"85vh", overflowY:"auto", borderColor:cor}}>
+      <div style={{...S.card, width:600, maxHeight:"90vh", overflowY:"auto", borderColor:cor}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
           <div>
             <div style={{fontSize:16,fontWeight:700}}>{conta.fornecedor}</div>
             <span style={S.badge(cor)}>{status}</span>
           </div>
-          <button style={{...S.btn("ghost"),fontSize:20}} onClick={onClose}>✕</button>
+          <button style={{...S.btn("ghost"),fontSize:20,lineHeight:1}} onClick={onClose}>✕</button>
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+        {/* Grid de campos */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
           {campos.map(c=>c.val?(
             <div key={c.label} style={{background:"#0F1117",borderRadius:8,padding:"10px 12px"}}>
               <div style={{fontSize:11,color:"#5A6070",marginBottom:2}}>{c.label}</div>
@@ -511,6 +542,7 @@ function ModalVerConta({conta, onClose}) {
           ):null)}
         </div>
 
+        {/* Chave PIX */}
         {conta.chave_pix&&(
           <div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
             <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>🔑 Chave PIX</div>
@@ -521,6 +553,7 @@ function ModalVerConta({conta, onClose}) {
           </div>
         )}
 
+        {/* Código de barras */}
         {conta.codigo_barras&&(
           <div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
             <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>📊 Código de Barras</div>
@@ -531,11 +564,45 @@ function ModalVerConta({conta, onClose}) {
           </div>
         )}
 
+        {/* Cupom / Recibo — visualização inline */}
         {conta.comprovante_url&&(
-          <a href={conta.comprovante_url} target="_blank" rel="noreferrer"
-            style={{display:"block",background:"#0F1117",borderRadius:8,padding:12,marginBottom:12,color:"#3A8FE8",fontSize:13}}>
-            📎 Ver Comprovante
-          </a>
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,color:"#5A6070",marginBottom:8}}>📎 Cupom / Recibo</div>
+            {isImg(conta.comprovante_url) ? (
+              <div>
+                <img src={conta.comprovante_url} alt="Cupom" style={{width:"100%",borderRadius:8,border:"1px solid #252A35",maxHeight:400,objectFit:"contain",background:"#0F1117"}}/>
+                <div style={{marginTop:8,display:"flex",gap:8}}>
+                  <button style={{...S.btn("primary"),flex:1}} onClick={conferirComIA} disabled={iaLoad}>
+                    {iaLoad?"🤖 Analisando…":"🤖 Conferir com IA"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <a href={conta.comprovante_url} target="_blank" rel="noreferrer"
+                style={{display:"block",background:"#0F1117",borderRadius:8,padding:12,color:"#3A8FE8",fontSize:13,textDecoration:"none"}}>
+                📄 Abrir PDF em nova aba
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Resultado da IA */}
+        {iaResult&&(
+          <div style={{background:"#0F1117",borderRadius:8,padding:16,marginBottom:16,border:`1px solid ${iaResult.status==="CONFIRMADO"?"#2ECC71":iaResult.status==="DIVERGÊNCIA"?"#E74C3C":"#F39C12"}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+              <span style={{fontSize:20}}>{iaResult.status==="CONFIRMADO"?"✅":iaResult.status==="DIVERGÊNCIA"?"⚠️":"❓"}</span>
+              <span style={{fontWeight:700,fontSize:15,color:iaResult.status==="CONFIRMADO"?"#2ECC71":iaResult.status==="DIVERGÊNCIA"?"#E74C3C":"#F39C12"}}>
+                {iaResult.status}
+              </span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+              {iaResult.fornecedor&&<div style={{fontSize:12}}><span style={{color:"#5A6070"}}>Fornecedor: </span>{iaResult.fornecedor}</div>}
+              {iaResult.data&&<div style={{fontSize:12}}><span style={{color:"#5A6070"}}>Data doc.: </span>{iaResult.data}</div>}
+              {iaResult.total_documento&&<div style={{fontSize:12}}><span style={{color:"#5A6070"}}>Total no doc.: </span><strong>{iaResult.total_documento}</strong></div>}
+              {iaResult.valor_lancado&&<div style={{fontSize:12}}><span style={{color:"#5A6070"}}>Valor lançado: </span><strong>{iaResult.valor_lancado}</strong></div>}
+            </div>
+            {iaResult.observacao&&<div style={{fontSize:12,color:"#8090A8",fontStyle:"italic"}}>{iaResult.observacao}</div>}
+          </div>
         )}
 
         <button style={{...S.btn("secondary"),width:"100%"}} onClick={onClose}>Fechar</button>
@@ -548,17 +615,11 @@ function ModalPagar({conta, onConfirmar, onCancelar, sv}) {
   const [fp,setFp]=useState({data_pagamento:hoje(),banco:"BANCO STONE"});
   const [arq,setArq]=useState(null);
   const [problema,setProblema]=useState(false);
-
   return (
     <div style={S.overlay}>
-      <div style={{...S.card,width:480,borderColor:"#2ECC71"}}>
-        <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>
-          {problema?"⚠️ Registrar Problema":"✅ Confirmar Pagamento"}
-        </div>
-        <div style={{fontSize:13,color:"#5A6070",marginBottom:16}}>
-          {conta?.fornecedor} — {fmt(Number(conta?.valor))} · vence {fmtData(conta?.vencimento)}
-        </div>
-
+      <div style={{...S.card,width:480,borderColor:problema?"#9B59B6":"#2ECC71"}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>{problema?"⚠️ Registrar Problema":"✅ Confirmar Pagamento"}</div>
+        <div style={{fontSize:13,color:"#5A6070",marginBottom:16}}>{conta?.fornecedor} — {fmt(Number(conta?.valor))} · vence {fmtData(conta?.vencimento)}</div>
         {conta?.chave_pix&&!problema&&(
           <div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
             <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>🔑 Chave PIX</div>
@@ -568,7 +629,6 @@ function ModalPagar({conta, onConfirmar, onCancelar, sv}) {
             </div>
           </div>
         )}
-
         {conta?.codigo_barras&&!problema&&(
           <div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
             <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>📊 Código de Barras</div>
@@ -578,7 +638,6 @@ function ModalPagar({conta, onConfirmar, onCancelar, sv}) {
             </div>
           </div>
         )}
-
         {!problema&&<>
           <div style={{marginBottom:12}}><label style={S.lbl}>Data do Pagamento</label>
             <input style={S.inp} type="date" value={fp.data_pagamento} onChange={e=>setFp(f=>({...f,data_pagamento:e.target.value}))}/>
@@ -588,17 +647,15 @@ function ModalPagar({conta, onConfirmar, onCancelar, sv}) {
               {["BANCO STONE","BANCO IFOOD","BANCO DO BRASIL","CAIXA","ITAÚ","BRADESCO","SICOOB"].map(b=><option key={b}>{b}</option>)}
             </select>
           </div>
-          <div style={{marginBottom:16}}><label style={S.lbl}>📎 Comprovante</label>
+          <div style={{marginBottom:16}}><label style={S.lbl}>📎 Comprovante de Pagamento</label>
             <input style={{...S.inp,cursor:"pointer"}} type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={e=>setArq(e.target.files[0])}/>
           </div>
         </>}
-
         {problema&&(
           <div style={{background:"#1A0A1A",border:"1px solid #9B59B6",borderRadius:8,padding:12,marginBottom:16,fontSize:13,color:"#C8A0E8"}}>
-            O status será marcado como <strong>PROBLEMA NO PAGAMENTO</strong>. O financeiro poderá editar e corrigir as informações de pagamento.
+            O status será marcado como <strong>PROBLEMA NO PAGAMENTO</strong>. O financeiro poderá editar e corrigir as informações.
           </div>
         )}
-
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           {!problema&&<button style={{...S.btn("primary"),flex:1}} onClick={()=>onConfirmar("PAGO",fp,arq)} disabled={sv}>{sv?"Salvando…":"✅ Confirmar Pago"}</button>}
           {!problema&&<button style={{...S.btn("purple"),flex:1}} onClick={()=>setProblema(true)}>⚠️ Problema no Pagamento</button>}
@@ -609,9 +666,7 @@ function ModalPagar({conta, onConfirmar, onCancelar, sv}) {
       </div>
     </div>
   );
-}
-
-function Contas({usuario}) {
+}function Contas({usuario}) {
   const [contas,setC]=useState([]); const [load,setL]=useState(true); const [show,setShow]=useState(false);
   const [pagId,setPId]=useState(null); const [editId,setEditId]=useState(null); const [verConta,setVerConta]=useState(null);
   const [fSt,setFSt]=useState(""); const [fLj,setFLj]=useState(""); const [sv,setSv]=useState(false);
@@ -619,7 +674,7 @@ function Contas({usuario}) {
   const [valF,onValF,numF,setValF]=useMoeda();
   const FORM_VAZIO={fornecedor_id:"",loja_id:"",grupo_id:"",subgrupo_id:"",tipo:"",vencimento:"",forma_pagamento:"PIX",numero_nf:"",chave_pix:"",codigo_barras:"",conferido_por:"",data_chegada:""};
   const [form,setForm]=useState(FORM_VAZIO);
-  const [fp,setFp]=useState({data_pagamento:hoje(),banco:"BANCO STONE"});
+  const [arqUpload,setArqUpload]=useState(null);
 
   useEffect(()=>{
     carregar();
@@ -631,12 +686,12 @@ function Contas({usuario}) {
 
   async function carregar(){
     setL(true);
-    let q=supabase.from("contas_pagar").select("*").order("vencimento",{ascending:true});
+    let q=supabase.from("contas_pagar").select("*");
     if(fLj) q=q.ilike("loja_id",`%${fLj}%`);
     const{data}=await q;
     let resultado=data||[];
     if(fSt) resultado=resultado.filter(c=>calcStatus(c)===fSt);
-    setC(resultado); setL(false);
+    setC(ordenarContas(resultado)); setL(false);
   }
 
   async function salvarNova(){
@@ -644,6 +699,14 @@ function Contas({usuario}) {
     const forn=fornecedores.find(f=>f.id===Number(form.fornecedor_id));
     const grp=grupos.find(g=>g.id===Number(form.grupo_id));
     const sub=subgrupos.find(s=>s.id===Number(form.subgrupo_id));
+    let comprovante_url=null;
+    if(arqUpload){
+      const ext=arqUpload.name.split(".").pop();
+      const path=`cupons/${Date.now()}.${ext}`;
+      await supabase.storage.from("documentos").upload(path,arqUpload,{upsert:true});
+      const{data:pub}=supabase.storage.from("documentos").getPublicUrl(path);
+      comprovante_url=pub.publicUrl;
+    }
     await supabase.from("contas_pagar").insert({
       fornecedor:forn?.nome||"", loja_id:form.loja_id, grupo:grp?.nome||"",
       tipo:sub?.nome||form.tipo, valor:numF, vencimento:form.vencimento,
@@ -651,8 +714,9 @@ function Contas({usuario}) {
       chave_pix:form.chave_pix, codigo_barras:form.codigo_barras,
       conferido_por:form.conferido_por, data_chegada:form.data_chegada||null,
       inserido_por:usuario.nome, status:"PENDENTE",
+      ...(comprovante_url&&{comprovante_url}),
     });
-    setForm(FORM_VAZIO); setValF(""); setShow(false); carregar(); setSv(false);
+    setForm(FORM_VAZIO); setValF(""); setArqUpload(null); setShow(false); carregar(); setSv(false);
   }
 
   async function salvarEdicao(){
@@ -660,14 +724,23 @@ function Contas({usuario}) {
     const forn=fornecedores.find(f=>f.id===Number(form.fornecedor_id));
     const grp=grupos.find(g=>g.id===Number(form.grupo_id));
     const sub=subgrupos.find(s=>s.id===Number(form.subgrupo_id));
+    let comprovante_url=undefined;
+    if(arqUpload){
+      const ext=arqUpload.name.split(".").pop();
+      const path=`cupons/${editId}.${ext}`;
+      await supabase.storage.from("documentos").upload(path,arqUpload,{upsert:true});
+      const{data:pub}=supabase.storage.from("documentos").getPublicUrl(path);
+      comprovante_url=pub.publicUrl;
+    }
     await supabase.from("contas_pagar").update({
       fornecedor:forn?.nome||"", loja_id:form.loja_id, grupo:grp?.nome||"",
       tipo:sub?.nome||form.tipo, valor:numF, vencimento:form.vencimento,
       forma_pagamento:form.forma_pagamento, numero_nf:form.numero_nf,
       chave_pix:form.chave_pix, codigo_barras:form.codigo_barras,
       conferido_por:form.conferido_por, data_chegada:form.data_chegada||null,
+      ...(comprovante_url!==undefined&&{comprovante_url}),
     }).eq("id",editId);
-    setEditId(null); setValF(""); setShow(false); carregar(); setSv(false);
+    setEditId(null); setValF(""); setArqUpload(null); setShow(false); carregar(); setSv(false);
   }
 
   function abrirEdicao(c){
@@ -679,7 +752,7 @@ function Contas({usuario}) {
 
   async function excluir(id){ if(!window.confirm("Excluir esta conta?"))return; await supabase.from("contas_pagar").delete().eq("id",id); carregar();}
 
-  async function confirmarPagamento(novoStatus, fp, arq){
+  async function confirmarPagamento(novoStatus,fp,arq){
     setSv(true); let url=null;
     if(arq){const ext=arq.name.split(".").pop(); const path=`comprovantes/${pagId}.${ext}`; await supabase.storage.from("documentos").upload(path,arq,{upsert:true}); const{data:pub}=supabase.storage.from("documentos").getPublicUrl(path); url=pub.publicUrl;}
     await supabase.from("contas_pagar").update({
@@ -692,40 +765,38 @@ function Contas({usuario}) {
   }
 
   const contaAtual=contas.find(c=>c.id===pagId);
-  const totPend=contas.filter(c=>calcStatus(c)==="A VENCER").reduce((s,c)=>s+Number(c.valor),0);
-  const totAtraso=contas.filter(c=>calcStatus(c)==="EM ATRASO").reduce((s,c)=>s+Number(c.valor),0);
-  const totPago=contas.filter(c=>calcStatus(c)==="PAGO").reduce((s,c)=>s+Number(c.valor),0);
+  const tots={ "A VENCER":0, "EM ATRASO":0, "PAGO":0, "PROBLEMA NO PAGAMENTO":0 };
+  contas.forEach(c=>{ const s=calcStatus(c); tots[s]=(tots[s]||0)+Number(c.valor); });
 
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
         <div><h2 style={{fontSize:20,fontWeight:700,margin:0}}>Contas a Pagar</h2><div style={{fontSize:13,color:"#5A6070",marginTop:4}}>Organograma de Pagamentos</div></div>
         {(usuario.perfil==="admin"||usuario.perfil==="financeiro")&&(
-          <button style={S.btn("primary")} onClick={()=>{setShow(!show);setEditId(null);setValF("");setForm(FORM_VAZIO);}}>+ Nova Conta</button>
+          <button style={S.btn("primary")} onClick={()=>{setShow(!show);setEditId(null);setValF("");setForm(FORM_VAZIO);setArqUpload(null);}}>+ Nova Conta</button>
         )}
       </div>
 
       <div style={{...S.g(4),marginBottom:24}}>
-        <div style={S.card}><div style={S.cT}>A Vencer</div><div style={{...S.kV,color:"#3A8FE8"}}>{fmt(totPend)}</div><div style={S.kL}>{contas.filter(c=>calcStatus(c)==="A VENCER").length} registros</div></div>
-        <div style={S.card}><div style={S.cT}>Em Atraso</div><div style={{...S.kV,color:"#E74C3C"}}>{fmt(totAtraso)}</div><div style={S.kL}>{contas.filter(c=>calcStatus(c)==="EM ATRASO").length} registros</div></div>
-        <div style={S.card}><div style={S.cT}>Pago</div><div style={{...S.kV,color:"#2ECC71"}}>{fmt(totPago)}</div><div style={S.kL}>{contas.filter(c=>calcStatus(c)==="PAGO").length} registros</div></div>
-        <div style={S.card}><div style={S.cT}>Total</div><div style={S.kV}>{fmt(contas.reduce((s,c)=>s+Number(c.valor),0))}</div><div style={S.kL}>{contas.length} registros</div></div>
+        <div style={S.card}><div style={S.cT}>A Vencer</div><div style={{...S.kV,color:"#3A8FE8"}}>{fmt(tots["A VENCER"])}</div><div style={S.kL}>{contas.filter(c=>calcStatus(c)==="A VENCER").length} registros</div></div>
+        <div style={S.card}><div style={S.cT}>Em Atraso</div><div style={{...S.kV,color:"#E74C3C"}}>{fmt(tots["EM ATRASO"])}</div><div style={S.kL}>{contas.filter(c=>calcStatus(c)==="EM ATRASO").length} registros</div></div>
+        <div style={S.card}><div style={S.cT}>Pago</div><div style={{...S.kV,color:"#2ECC71"}}>{fmt(tots["PAGO"])}</div><div style={S.kL}>{contas.filter(c=>calcStatus(c)==="PAGO").length} registros</div></div>
+        <div style={S.card}><div style={S.cT}>Problema</div><div style={{...S.kV,color:"#9B59B6"}}>{fmt(tots["PROBLEMA NO PAGAMENTO"])}</div><div style={S.kL}>{contas.filter(c=>calcStatus(c)==="PROBLEMA NO PAGAMENTO").length} registros</div></div>
       </div>
 
-      {show&&<FormContas form={form} setForm={setForm} valF={valF} onValF={onValF} grupos={grupos} subgrupos={subgrupos} fornecedores={fornecedores} editId={editId} sv={sv} onSalvar={editId?salvarEdicao:salvarNova} onCancelar={()=>{setEditId(null);setShow(false);setValF("");setForm(FORM_VAZIO);}}/>}
+      {show&&<FormContas form={form} setForm={setForm} valF={valF} onValF={onValF} grupos={grupos} subgrupos={subgrupos} fornecedores={fornecedores} editId={editId} sv={sv} onSalvar={editId?salvarEdicao:salvarNova} onCancelar={()=>{setEditId(null);setShow(false);setValF("");setForm(FORM_VAZIO);setArqUpload(null);}}/>}
 
       {verConta&&<ModalVerConta conta={verConta} onClose={()=>setVerConta(null)}/>}
-
       {pagId&&contaAtual&&<ModalPagar conta={contaAtual} onConfirmar={confirmarPagamento} onCancelar={()=>setPId(null)} sv={sv}/>}
 
       <div style={S.card}>
         <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-          <select style={{...S.sel,width:180}} value={fSt} onChange={e=>setFSt(e.target.value)}>
+          <select style={{...S.sel,width:200}} value={fSt} onChange={e=>setFSt(e.target.value)}>
             <option value="">Todos os status</option>
-            <option value="A VENCER">A Vencer</option>
-            <option value="EM ATRASO">Em Atraso</option>
-            <option value="PAGO">Pago</option>
-            <option value="PROBLEMA NO PAGAMENTO">Problema no Pagamento</option>
+            <option value="PROBLEMA NO PAGAMENTO">⚠️ Problema no Pagamento</option>
+            <option value="EM ATRASO">🔴 Em Atraso</option>
+            <option value="A VENCER">🔵 A Vencer</option>
+            <option value="PAGO">✅ Pago</option>
           </select>
           <input style={{...S.inp,width:200}} placeholder="Filtrar por loja…" value={fLj} onChange={e=>setFLj(e.target.value)}/>
         </div>
@@ -734,43 +805,44 @@ function Contas({usuario}) {
           <thead><tr>{["Fornecedor","Loja","Grupo","Valor","Vencimento","Forma","Inserido por","Status","Ações"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
           <tbody>{contas.map(c=>{
             const st=calcStatus(c); const cor=corStatus(st);
-            return(
-            <tr key={c.id}>
-              <td style={{...S.td,fontWeight:600}}>{c.fornecedor}</td>
-              <td style={S.td}>{c.loja_id}</td>
-              <td style={S.td}>{c.grupo}</td>
-              <td style={{...S.td,fontWeight:700}}>{fmt(Number(c.valor))}</td>
-              <td style={S.td}>{fmtData(c.vencimento)}</td>
-              <td style={S.td}><span style={S.badge(c.forma_pagamento==="PIX"?"#2ECC71":c.forma_pagamento==="BOLETO"?"#F39C12":"#3A8FE8")}>{c.forma_pagamento}</span></td>
-              <td style={{...S.td,fontSize:11,color:"#5A6070"}}>{c.inserido_por||"—"}</td>
-              <td style={S.td}><span style={S.badge(cor)}>{st}</span></td>
-              <td style={S.td}>
-                <div style={{display:"flex",gap:4}}>
-                  <button style={{...S.btn("ghost"),padding:"4px 8px",fontSize:13}} title="Visualizar" onClick={()=>setVerConta(c)}>👁️</button>
-                  {(st==="A VENCER"||st==="EM ATRASO"||st==="PROBLEMA NO PAGAMENTO")&&usuario.perfil==="admin"&&(
-                    <button style={{...S.btn("primary"),padding:"4px 8px",fontSize:11}} onClick={()=>setPId(c.id)}>Pagar</button>
-                  )}
-                  {st==="PAGO"&&<span style={{fontSize:11,color:"#2ECC71"}}>✓ {fmtData(c.data_pagamento)}</span>}
-                  <button style={{...S.btn("secondary"),padding:"4px 8px",fontSize:11}} onClick={()=>abrirEdicao(c)}>✏️</button>
-                  {usuario.perfil==="admin"&&<button style={{...S.btn("danger"),padding:"4px 8px",fontSize:11}} onClick={()=>excluir(c.id)}>🗑️</button>}
-                </div>
-              </td>
-            </tr>
-          );})}
+            return (
+              <tr key={c.id}>
+                <td style={{...S.td,fontWeight:600}}>{c.fornecedor}</td>
+                <td style={S.td}>{c.loja_id}</td>
+                <td style={S.td}>{c.grupo}</td>
+                <td style={{...S.td,fontWeight:700}}>{fmt(Number(c.valor))}</td>
+                <td style={S.td}>{fmtData(c.vencimento)}</td>
+                <td style={S.td}><span style={S.badge(c.forma_pagamento==="PIX"?"#2ECC71":c.forma_pagamento==="BOLETO"?"#F39C12":"#3A8FE8")}>{c.forma_pagamento}</span></td>
+                <td style={{...S.td,fontSize:11,color:"#5A6070"}}>{c.inserido_por||"—"}</td>
+                <td style={S.td}><span style={S.badge(cor)}>{st}</span></td>
+                <td style={S.td}>
+                  <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                    <button title="Visualizar" style={{...S.btn("ghost"),padding:"4px 6px",fontSize:14,lineHeight:1}} onClick={()=>setVerConta(c)}>👁️</button>
+                    {(st==="A VENCER"||st==="EM ATRASO"||st==="PROBLEMA NO PAGAMENTO")&&usuario.perfil==="admin"&&(
+                      <button style={{...S.btn("primary"),padding:"4px 8px",fontSize:11}} onClick={()=>setPId(c.id)}>Pagar</button>
+                    )}
+                    {st==="PAGO"&&<span style={{fontSize:11,color:"#2ECC71",whiteSpace:"nowrap"}}>✓ {fmtData(c.data_pagamento)}</span>}
+                    <button title="Editar" style={{...S.btn("secondary"),padding:"4px 6px",fontSize:13,lineHeight:1}} onClick={()=>abrirEdicao(c)}>✏️</button>
+                    {usuario.perfil==="admin"&&<button title="Excluir" style={{...S.btn("danger"),padding:"4px 6px",fontSize:13,lineHeight:1}} onClick={()=>excluir(c.id)}>🗑️</button>}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
           {contas.length===0&&<tr><td colSpan={9} style={{...S.td,color:"#5A6070",textAlign:"center"}}>Nenhum registro</td></tr>}
           </tbody>
         </table>)}
       </div>
     </div>
   );
-}function Cadastros({usuario}) {
+}
+
+function Cadastros({usuario}) {
   const [aba,setA]=useState("fornecedores");
   const [fornecedores,setForn]=useState([]); const [grupos,setGrupos]=useState([]);
   const [novoForn,setNF]=useState(""); const [novoGrupo,setNG]=useState(""); const [novoSub,setNS]=useState({grupo_id:"",nome:""});
   const [sv,setSv]=useState(false); const [busca,setBusca]=useState("");
-
   useEffect(()=>{ carregarForn(); carregarGrupos(); },[]);
-
   async function carregarForn(){ const{data}=await supabase.from("fornecedores").select("*").eq("ativo",true).order("nome"); setForn(data||[]); }
   async function carregarGrupos(){ const{data}=await supabase.from("grupos_despesa").select("*, subgrupos_despesa(*)").eq("ativo",true); setGrupos(data||[]); }
   async function addForn(){ if(!novoForn.trim())return; setSv(true); await supabase.from("fornecedores").insert({nome:novoForn.trim().toUpperCase()}); setNF(""); carregarForn(); setSv(false); }
@@ -778,9 +850,7 @@ function Contas({usuario}) {
   async function addGrupo(){ if(!novoGrupo.trim())return; setSv(true); await supabase.from("grupos_despesa").insert({nome:novoGrupo.trim().toUpperCase()}); setNG(""); carregarGrupos(); setSv(false); }
   async function addSub(){ if(!novoSub.grupo_id||!novoSub.nome.trim())return; setSv(true); await supabase.from("subgrupos_despesa").insert({grupo_id:Number(novoSub.grupo_id),nome:novoSub.nome.trim().toUpperCase()}); setNS({grupo_id:"",nome:""}); carregarGrupos(); setSv(false); }
   async function delSub(id){ await supabase.from("subgrupos_despesa").update({ativo:false}).eq("id",id); carregarGrupos(); }
-
   const fornFiltrados=fornecedores.filter(f=>f.nome.toLowerCase().includes(busca.toLowerCase()));
-
   return (
     <div>
       <h2 style={{fontSize:20,fontWeight:700,marginBottom:20}}>Cadastros</h2>
