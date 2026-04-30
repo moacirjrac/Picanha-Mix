@@ -34,7 +34,6 @@ const MENU = [
   { id:"config",    label:"Configurações",    icon:"⚙️" },
 ];
 
-// Subgrupos que compõem cada indicador
 const SUBS_CMV   = ["INSUMOS GERAIS","BEBIDAS","EMBALAGEM","PROTEÍNAS PRODUÇÃO","PICOLÉS E OUTROS","LISTA DE MERCADO","PEDIDO FORNECEDOR","VERDURAS E LEGUMES","CERVEJA/REFRIGERANTE/ÁGUA","CHOPP BRAHMA","CHOPP HEINEKEN","CHOPP ALTANEIRA","BEBIDAS QUENTES","EMBALAGEM PERSONALIZADA","EMBALAGEM LOCAL","CARNE BOVINA","PEIXE","CAMARÃO","PICANHA SUÍNA","FRANGO","CALABRESA","BACON","PRESUNTO","QUEIJO","BATATA PALITO","MANTEIGA"];
 const SUBS_CMO   = ["SALÁRIOS","FÉRIAS","FGTS","INSS","RESCISÕES E ACORDOS","DIÁRIAS","MOTOBOYS","FOLHA DE PAGAMENTO"];
 const SUBS_LUZ   = ["ENERGIA","ÁGUA","GÁS DE COZINHA"];
@@ -46,7 +45,6 @@ const pct  = v => v!=null ? `${Number(v).toFixed(1)}%` : "—";
 const sem  = (v,m=30) => v<=m?"#2ECC71":v<=m+5?"#F39C12":"#E74C3C";
 const hoje = () => new Date().toISOString().slice(0,10);
 
-// Máscara de moeda brasileira
 function useMoeda(inicial="") {
   const [val,setVal] = useState(inicial);
   const onChange = useCallback((e) => {
@@ -80,7 +78,6 @@ const S = {
   th:   { textAlign:"left", padding:"10px 12px", color:"#5A6070", fontSize:11, fontWeight:600, textTransform:"uppercase", borderBottom:"1px solid #252A35" },
   td:   { padding:"10px 12px", borderBottom:"1px solid #1A1F2B", color:"#C8D0DC" },
   badge:c=>({ display:"inline-block", padding:"3px 8px", borderRadius:4, fontSize:11, fontWeight:600, background:c+"22", color:c }),
-  row:  { display:"grid", gap:12, alignItems:"end" },
 };
 
 function Login({onLogin}) {
@@ -126,74 +123,45 @@ function Login({onLogin}) {
   },[mes]);
 
   function calcLoja(lojaId) {
-    const vLoja = lojaId ? vendas.filter(v=>v.loja_id===lojaId) : vendas;
-    const eLoja = lojaId ? envios.filter(e=>e.loja_id===lojaId) : envios;
-    const dLoja = lojaId ? despesas.filter(d=>d.loja_id===lojaId) : despesas;
-
-    const fat = vLoja.reduce((s,v)=>s+Number(v.valor),0);
-
-    // CMV = envios producao + despesas subgrupo CMV
-    const cmvEnvios = eLoja.reduce((s,e)=>s+Number(e.valor_total||e.quantidade*e.valor_unitario),0);
-    const cmvDesp   = dLoja.filter(d=>SUBS_CMV.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
-    const cmvVal    = cmvEnvios + cmvDesp;
-    const cmvPct    = fat>0?(cmvVal/fat)*100:0;
-
-    // CMO
-    const cmoVal  = dLoja.filter(d=>SUBS_CMO.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
-    const cmoPct  = fat>0?(cmoVal/fat)*100:0;
-
-    // Prime Cost
-    const primeVal = cmvVal+cmoVal;
-    const primePct = fat>0?(primeVal/fat)*100:0;
-
-    // Luz Agua Gas
-    const lugVal  = dLoja.filter(d=>SUBS_LUZ.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
-    const lugPct  = fat>0?(lugVal/fat)*100:0;
-
-    // Custo Ocupacao
-    const ocupVal = dLoja.filter(d=>SUBS_OCUP.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
-    const ocupPct = fat>0?(ocupVal/fat)*100:0;
-
-    // Custos Fixos
-    const fixosVal = dLoja.filter(d=>SUBS_FIXOS.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
-
-    // Margem Contribuicao
-    const mcEfetiva  = fat>0?((fat-cmvVal-cmoVal)/fat)*100:0;
-    const mcEsperada = 45;
-
-    // Ponto Equilibrio
-    const peEfetivo  = mcEfetiva>0  ? fixosVal/(mcEfetiva/100)  : 0;
-    const peEsperado = mcEsperada>0 ? fixosVal/(mcEsperada/100) : 0;
-
-    // Detalhes CMV por categoria
-    const detCMV = {};
-    dLoja.filter(d=>SUBS_CMV.some(s=>d.categoria?.toUpperCase().includes(s))).forEach(d=>{
-      const k=d.categoria||"Outros"; detCMV[k]=(detCMV[k]||0)+Number(d.valor);
-    });
+    const vL=lojaId?vendas.filter(v=>v.loja_id===lojaId):vendas;
+    const eL=lojaId?envios.filter(e=>e.loja_id===lojaId):envios;
+    const dL=lojaId?despesas.filter(d=>d.loja_id===lojaId):despesas;
+    const fat=vL.reduce((s,v)=>s+Number(v.valor),0);
+    const cmvEnvios=eL.reduce((s,e)=>s+Number(e.valor_total||e.quantidade*e.valor_unitario),0);
+    const cmvDesp=dL.filter(d=>SUBS_CMV.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
+    const cmvVal=cmvEnvios+cmvDesp; const cmvPct=fat>0?(cmvVal/fat)*100:0;
+    const cmoVal=dL.filter(d=>SUBS_CMO.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
+    const cmoPct=fat>0?(cmoVal/fat)*100:0;
+    const primeVal=cmvVal+cmoVal; const primePct=fat>0?(primeVal/fat)*100:0;
+    const lugVal=dL.filter(d=>SUBS_LUZ.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
+    const lugPct=fat>0?(lugVal/fat)*100:0;
+    const ocupVal=dL.filter(d=>SUBS_OCUP.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
+    const ocupPct=fat>0?(ocupVal/fat)*100:0;
+    const fixosVal=dL.filter(d=>SUBS_FIXOS.some(s=>d.categoria?.toUpperCase().includes(s))).reduce((s,d)=>s+Number(d.valor),0);
+    const mcEfetiva=fat>0?((fat-cmvVal-cmoVal)/fat)*100:0;
+    const mcEsperada=45;
+    const peEfetivo=mcEfetiva>0?fixosVal/(mcEfetiva/100):0;
+    const peEsperado=fixosVal/(mcEsperada/100);
+    const detCMV={};
+    dL.filter(d=>SUBS_CMV.some(s=>d.categoria?.toUpperCase().includes(s))).forEach(d=>{const k=d.categoria||"Outros"; detCMV[k]=(detCMV[k]||0)+Number(d.valor);});
     if(cmvEnvios>0) detCMV["Proteínas (Produção)"]=(detCMV["Proteínas (Produção)"]||0)+cmvEnvios;
-
-    // Detalhes CMO por categoria
-    const detCMO = {};
-    dLoja.filter(d=>SUBS_CMO.some(s=>d.categoria?.toUpperCase().includes(s))).forEach(d=>{
-      const k=d.categoria||"Outros"; detCMO[k]=(detCMO[k]||0)+Number(d.valor);
-    });
-
+    const detCMO={};
+    dL.filter(d=>SUBS_CMO.some(s=>d.categoria?.toUpperCase().includes(s))).forEach(d=>{const k=d.categoria||"Outros"; detCMO[k]=(detCMO[k]||0)+Number(d.valor);});
     return {fat,cmvVal,cmvPct,cmoVal,cmoPct,primeVal,primePct,lugVal,lugPct,ocupVal,ocupPct,fixosVal,mcEfetiva,mcEsperada,peEfetivo,peEsperado,detCMV,detCMO};
   }
 
   const [showDetCMV,setSDC]=useState(false); const [showDetCMO,setSDO]=useState(false);
-  const dados = calcLoja(lojaFiltro);
-  const {fat,cmvVal,cmvPct,cmoVal,cmoPct,primeVal,primePct,lugVal,lugPct,ocupVal,ocupPct,fixosVal,mcEfetiva,mcEsperada,peEfetivo,peEsperado,detCMV,detCMO} = dados;
+  const d=calcLoja(lojaFiltro);
 
   function KpiCard({label,val,pct,meta,icon,onDetail}) {
-    const c = pct!=null ? sem(pct,meta||30) : "#E8E8E8";
+    const c=pct!=null?sem(pct,meta||30):"#E8E8E8";
     return (
       <div style={{...S.card,position:"relative"}}>
         <div style={{fontSize:18,marginBottom:6}}>{icon}</div>
         <div style={{...S.kV,color:c}}>{fmt(val)}</div>
         {pct!=null&&<div style={{fontSize:16,fontWeight:700,color:c,marginTop:2}}>{pct.toFixed(1)}%</div>}
         <div style={S.kL}>{label}{meta&&<span style={{color:"#3A4050"}}> (meta {meta}%)</span>}</div>
-        {onDetail&&<button onClick={onDetail} style={{...S.btn("ghost"),fontSize:11,padding:"2px 6px",position:"absolute",top:12,right:12}}>▼ detalhes</button>}
+        {onDetail&&<button onClick={onDetail} style={{...S.btn("ghost"),fontSize:11,padding:"2px 6px",position:"absolute",top:12,right:12}}>▼ ver</button>}
       </div>
     );
   }
@@ -210,88 +178,77 @@ function Login({onLogin}) {
           </select>
         </div>
       </div>
-
       {load?<div style={{color:"#5A6070",padding:20}}>Carregando…</div>:(
         <>
-        {/* KPIs principais */}
         <div style={{...S.g(4),marginBottom:16}}>
-          <div style={S.card}><div style={{fontSize:18,marginBottom:6}}>📈</div><div style={{...S.kV,color:"#E8E8E8"}}>{fmt(fat)}</div><div style={S.kL}>Faturamento Bruto</div></div>
-          <KpiCard label="CMV" val={cmvVal} pct={cmvPct} meta={30} icon="🥩" onDetail={()=>setSDC(!showDetCMV)}/>
-          <KpiCard label="CMO" val={cmoVal} pct={cmoPct} meta={25} icon="👥" onDetail={()=>setSDO(!showDetCMO)}/>
-          <KpiCard label="Prime Cost" val={primeVal} pct={primePct} meta={58} icon="📊"/>
+          <div style={S.card}><div style={{fontSize:18,marginBottom:6}}>📈</div><div style={{...S.kV}}>{fmt(d.fat)}</div><div style={S.kL}>Faturamento Bruto</div></div>
+          <KpiCard label="CMV" val={d.cmvVal} pct={d.cmvPct} meta={30} icon="🥩" onDetail={()=>setSDC(!showDetCMV)}/>
+          <KpiCard label="CMO" val={d.cmoVal} pct={d.cmoPct} meta={25} icon="👥" onDetail={()=>setSDO(!showDetCMO)}/>
+          <KpiCard label="Prime Cost" val={d.primeVal} pct={d.primePct} meta={58} icon="📊"/>
         </div>
-
-        {/* Detalhe CMV */}
-        {showDetCMV&&Object.keys(detCMV).length>0&&(
+        {showDetCMV&&Object.keys(d.detCMV).length>0&&(
           <div style={{...S.card,marginBottom:16,borderColor:"#E8533A"}}>
             <div style={S.cT}>🥩 Detalhamento CMV</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-              {Object.entries(detCMV).sort((a,b)=>b[1]-a[1]).map(([k,v])=>(
+              {Object.entries(d.detCMV).sort((a,b)=>b[1]-a[1]).map(([k,v])=>(
                 <div key={k} style={{background:"#0F1117",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between"}}>
-                  <span style={{fontSize:12,color:"#8090A8"}}>{k}</span>
-                  <span style={{fontSize:12,fontWeight:700}}>{fmt(v)}</span>
+                  <span style={{fontSize:12,color:"#8090A8"}}>{k}</span><span style={{fontSize:12,fontWeight:700}}>{fmt(v)}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
-
-        {/* Detalhe CMO */}
-        {showDetCMO&&Object.keys(detCMO).length>0&&(
+        {showDetCMO&&Object.keys(d.detCMO).length>0&&(
           <div style={{...S.card,marginBottom:16,borderColor:"#3A8FE8"}}>
             <div style={S.cT}>👥 Detalhamento CMO</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-              {Object.entries(detCMO).sort((a,b)=>b[1]-a[1]).map(([k,v])=>(
+              {Object.entries(d.detCMO).sort((a,b)=>b[1]-a[1]).map(([k,v])=>(
                 <div key={k} style={{background:"#0F1117",borderRadius:8,padding:"8px 12px",display:"flex",justifyContent:"space-between"}}>
-                  <span style={{fontSize:12,color:"#8090A8"}}>{k}</span>
-                  <span style={{fontSize:12,fontWeight:700}}>{fmt(v)}</span>
+                  <span style={{fontSize:12,color:"#8090A8"}}>{k}</span><span style={{fontSize:12,fontWeight:700}}>{fmt(v)}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
-
         <div style={{...S.g(4),marginBottom:16}}>
-          <KpiCard label="Luz, Água e Gás" val={lugVal} pct={lugPct} meta={5} icon="⚡"/>
-          <KpiCard label="Custo de Ocupação" val={ocupVal} pct={ocupPct} meta={10} icon="🏠"/>
-          <div style={S.card}><div style={{fontSize:18,marginBottom:6}}>🔧</div><div style={{...S.kV}}>{fmt(fixosVal)}</div><div style={S.kL}>Custos Fixos</div></div>
+          <KpiCard label="Luz, Água e Gás" val={d.lugVal} pct={d.lugPct} meta={5} icon="⚡"/>
+          <KpiCard label="Custo de Ocupação" val={d.ocupVal} pct={d.ocupPct} meta={10} icon="🏠"/>
+          <div style={S.card}><div style={{fontSize:18,marginBottom:6}}>🔧</div><div style={{...S.kV}}>{fmt(d.fixosVal)}</div><div style={S.kL}>Custos Fixos</div></div>
           <div style={S.card}>
             <div style={{fontSize:18,marginBottom:6}}>💹</div>
             <div style={{display:"flex",gap:16}}>
-              <div><div style={{...S.kV,color:"#2ECC71",fontSize:18}}>{mcEfetiva.toFixed(1)}%</div><div style={{fontSize:11,color:"#5A6070"}}>MC Efetiva</div></div>
-              <div><div style={{...S.kV,color:"#3A8FE8",fontSize:18}}>{mcEsperada}%</div><div style={{fontSize:11,color:"#5A6070"}}>MC Esperada</div></div>
+              <div><div style={{...S.kV,color:"#2ECC71",fontSize:18}}>{d.mcEfetiva.toFixed(1)}%</div><div style={{fontSize:11,color:"#5A6070"}}>MC Efetiva</div></div>
+              <div><div style={{...S.kV,color:"#3A8FE8",fontSize:18}}>{d.mcEsperada}%</div><div style={{fontSize:11,color:"#5A6070"}}>MC Esperada</div></div>
             </div>
             <div style={S.kL}>Margem de Contribuição</div>
           </div>
         </div>
-
         <div style={{...S.g(2),marginBottom:16}}>
           <div style={S.card}>
             <div style={S.cT}>⚖️ Ponto de Equilíbrio</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div style={{background:"#0F1117",borderRadius:8,padding:12}}>
-                <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>PE Efetivo (MC {mcEfetiva.toFixed(1)}%)</div>
-                <div style={{fontSize:18,fontWeight:700,color:"#F39C12"}}>{fmt(peEfetivo)}</div>
+                <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>PE Efetivo (MC {d.mcEfetiva.toFixed(1)}%)</div>
+                <div style={{fontSize:18,fontWeight:700,color:"#F39C12"}}>{fmt(d.peEfetivo)}</div>
               </div>
               <div style={{background:"#0F1117",borderRadius:8,padding:12}}>
                 <div style={{fontSize:11,color:"#5A6070",marginBottom:4}}>PE Esperado (MC 45%)</div>
-                <div style={{fontSize:18,fontWeight:700,color:"#2ECC71"}}>{fmt(peEsperado)}</div>
+                <div style={{fontSize:18,fontWeight:700,color:"#2ECC71"}}>{fmt(d.peEsperado)}</div>
               </div>
             </div>
           </div>
-
           {!lojaFiltro&&(
             <div style={S.card}>
               <div style={S.cT}>CMV por Loja</div>
               {LOJAS.filter(l=>l.id!=="producao").map(l=>{
-                const d=calcLoja(l.id);
-                if(d.fat===0) return null;
+                const ld=calcLoja(l.id);
+                if(ld.fat===0) return null;
                 return(
                   <div key={l.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #1A1F2B"}}>
                     <span style={{color:l.cor,fontSize:13}}>● {l.nome}</span>
                     <div style={{display:"flex",gap:12}}>
-                      <span style={{fontSize:12,color:"#5A6070"}}>{fmt(d.fat)}</span>
-                      <span style={{fontWeight:700,color:sem(d.cmvPct)}}>{d.cmvPct.toFixed(1)}%</span>
+                      <span style={{fontSize:12,color:"#5A6070"}}>{fmt(ld.fat)}</span>
+                      <span style={{fontWeight:700,color:sem(ld.cmvPct)}}>{ld.cmvPct.toFixed(1)}%</span>
                     </div>
                   </div>
                 );
@@ -303,7 +260,9 @@ function Login({onLogin}) {
       )}
     </div>
   );
-}function Producao({usuario}) {
+}
+
+function Producao({usuario}) {
   const [precos,setP]=useState([]); const [envios,setE]=useState([]); const [form,setF]=useState({loja_id:"",data:hoje(),item:"",quantidade:""});
   const [filtro,setFi]=useState({loja:"",data:hoje()}); const [saving,setSv]=useState(false);
   const ljs=usuario.perfil==="gerente_loja"?LOJAS.filter(l=>l.id===usuario.loja_id):LOJAS.filter(l=>l.id!=="producao");
@@ -334,7 +293,7 @@ function Login({onLogin}) {
           <div style={{display:"flex",gap:8}}><input style={{...S.inp,width:150}} type="date" value={filtro.data} onChange={e=>setFi(f=>({...f,data:e.target.value}))}/><select style={{...S.sel,width:180}} value={filtro.loja} onChange={e=>setFi(f=>({...f,loja:e.target.value}))}><option value="">Todas as lojas</option>{ljs.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}</select></div>
         </div>
         <table style={S.tbl}><thead><tr>{["Loja","Produto","Qtd","Unit.","Total",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-        <tbody>{envios.length===0?<tr><td colSpan={6} style={{...S.td,color:"#5A6070",textAlign:"center"}}>Nenhum envio registrado</td></tr>:envios.map(e=>{const l=LOJAS.find(x=>x.id===e.loja_id); const tot=Number(e.valor_total||e.quantidade*e.valor_unitario); return(<tr key={e.id}><td style={{...S.td,color:l?.cor}}>{l?.nome}</td><td style={S.td}>{e.item}</td><td style={S.td}>{e.quantidade}</td><td style={S.td}>{fmt(Number(e.valor_unitario))}</td><td style={{...S.td,fontWeight:700}}>{fmt(tot)}</td><td style={S.td}>{usuario.perfil==="admin"&&<button style={{...S.btn("ghost"),padding:"2px 8px",fontSize:11,color:"#E74C3C"}} onClick={()=>excluir(e.id)}>✕</button>}</td></tr>);})}</tbody>
+        <tbody>{envios.length===0?<tr><td colSpan={6} style={{...S.td,color:"#5A6070",textAlign:"center"}}>Nenhum envio</td></tr>:envios.map(e=>{const l=LOJAS.find(x=>x.id===e.loja_id); const tot=Number(e.valor_total||e.quantidade*e.valor_unitario); return(<tr key={e.id}><td style={{...S.td,color:l?.cor}}>{l?.nome}</td><td style={S.td}>{e.item}</td><td style={S.td}>{e.quantidade}</td><td style={S.td}>{fmt(Number(e.valor_unitario))}</td><td style={{...S.td,fontWeight:700}}>{fmt(tot)}</td><td style={S.td}>{usuario.perfil==="admin"&&<button style={{...S.btn("ghost"),padding:"2px 8px",fontSize:11,color:"#E74C3C"}} onClick={()=>excluir(e.id)}>✕</button>}</td></tr>);})}</tbody>
         </table>
       </div>
     </div>
@@ -344,31 +303,25 @@ function Login({onLogin}) {
 function Financeiro({usuario}) {
   const [aba,setA]=useState("vendas"); const [vendas,setV]=useState([]); const [desp,setD]=useState([]);
   const [filtro,setFi]=useState({loja:"",data:hoje()});
-  const [fv,setFv]=useState({loja_id:"",data:hoje(),canal:"",valor:""});
+  const [fv,setFv]=useState({loja_id:"",data:hoje(),canal:""});
   const [fd,setFd]=useState({loja_id:"",data:hoje(),fornecedor_id:"",grupo_id:"",subgrupo_id:"",observacao:""});
   const [valV,onValV,numV,setValV]=useMoeda();
   const [valD,onValD,numD,setValD]=useMoeda();
   const [sv,setSv]=useState(false);
   const [fornecedores,setForn]=useState([]); const [grupos,setGrupos]=useState([]); const [subgrupos,setSubs]=useState([]);
   const ljs=usuario.perfil==="gerente_loja"?LOJAS.filter(l=>l.id===usuario.loja_id):LOJAS.filter(l=>l.id!=="producao");
-
   useEffect(()=>{
     supabase.from("fornecedores").select("*").eq("ativo",true).order("nome").then(({data})=>setForn(data||[]));
     supabase.from("grupos_despesa").select("*").eq("ativo",true).then(({data})=>setGrupos(data||[]));
   },[]);
   useEffect(()=>{ if(fd.grupo_id) supabase.from("subgrupos_despesa").select("*").eq("grupo_id",fd.grupo_id).eq("ativo",true).then(({data})=>setSubs(data||[])); else setSubs([]); },[fd.grupo_id]);
   useEffect(()=>{ ldV(); ldD(); },[filtro]);
-
   async function ldV(){let q=supabase.from("vendas").select("*").eq("data",filtro.data).order("criado_em",{ascending:false}); if(filtro.loja)q=q.eq("loja_id",filtro.loja); const{data}=await q; setV(data||[]);}
   async function ldD(){let q=supabase.from("despesas_caixa").select("*").eq("data",filtro.data).order("criado_em",{ascending:false}); if(filtro.loja)q=q.eq("loja_id",filtro.loja); const{data}=await q; setD(data||[]);}
-
   async function svV(){if(!fv.loja_id||!fv.canal||!numV)return; setSv(true); await supabase.from("vendas").insert({loja_id:fv.loja_id,data:fv.data,canal:fv.canal,valor:numV,usuario_id:usuario.id}); setFv(f=>({...f,canal:""})); setValV(""); ldV(); setSv(false);}
   async function svD(){if(!fd.loja_id||!numD)return; setSv(true); const forn=fornecedores.find(f=>f.id===Number(fd.fornecedor_id)); const grp=grupos.find(g=>g.id===Number(fd.grupo_id)); const sub=subgrupos.find(s=>s.id===Number(fd.subgrupo_id)); await supabase.from("despesas_caixa").insert({loja_id:fd.loja_id,data:fd.data,categoria:sub?.nome||grp?.nome||"",valor:numD,observacao:`${forn?.nome||""} ${fd.observacao}`.trim(),usuario_id:usuario.id}); setFd(f=>({...f,fornecedor_id:"",grupo_id:"",subgrupo_id:"",observacao:""})); setValD(""); ldD(); setSv(false);}
-
   const totV=vendas.reduce((s,v)=>s+Number(v.valor),0);
-  const totD=desp.reduce((s,d)=>s+Number(d.valor),0);
   const resumo=CANAIS.map(c=>({c,t:vendas.filter(v=>v.canal===c).reduce((s,v)=>s+Number(v.valor),0)})).filter(x=>x.t>0);
-
   return (
     <div>
       <h2 style={{fontSize:20,fontWeight:700,marginBottom:20}}>Módulo Financeiro</h2>
@@ -379,7 +332,6 @@ function Financeiro({usuario}) {
         <input style={{...S.inp,width:150}} type="date" value={filtro.data} onChange={e=>setFi(f=>({...f,data:e.target.value}))}/>
         <select style={{...S.sel,width:200}} value={filtro.loja} onChange={e=>setFi(f=>({...f,loja:e.target.value}))}><option value="">Todas as lojas</option>{ljs.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}</select>
       </div>
-
       {aba==="vendas"&&<>
         <div style={{...S.card,marginBottom:24}}>
           <div style={S.cT}>Lançar Venda</div>
@@ -396,7 +348,6 @@ function Financeiro({usuario}) {
           <div style={S.card}><div style={S.cT}>Últimos Lançamentos</div><table style={S.tbl}><thead><tr>{["Loja","Canal","Valor"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{vendas.slice(0,8).map(v=>{const l=LOJAS.find(x=>x.id===v.loja_id); return<tr key={v.id}><td style={{...S.td,color:l?.cor}}>{l?.nome}</td><td style={S.td}>{v.canal}</td><td style={{...S.td,fontWeight:600}}>{fmt(Number(v.valor))}</td></tr>;})} {vendas.length===0&&<tr><td colSpan={3} style={{...S.td,color:"#5A6070",textAlign:"center"}}>Nenhum lançamento</td></tr>}</tbody></table></div>
         </div>
       </>}
-
       {aba==="despesas"&&<>
         <div style={{...S.card,marginBottom:24}}>
           <div style={S.cT}>Lançar Despesa</div>
@@ -413,7 +364,7 @@ function Financeiro({usuario}) {
             <button style={S.btn("primary")} onClick={svD} disabled={sv}>+ Lançar</button>
           </div>
         </div>
-        <div style={S.card}><div style={S.cT}>Despesas do Dia — {fmt(totD)}</div>
+        <div style={S.card}><div style={S.cT}>Despesas do Dia</div>
           <table style={S.tbl}><thead><tr>{["Loja","Categoria","Valor","Obs."].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
           <tbody>{desp.map(d=>{const l=LOJAS.find(x=>x.id===d.loja_id); return<tr key={d.id}><td style={{...S.td,color:l?.cor}}>{l?.nome}</td><td style={S.td}>{d.categoria}</td><td style={{...S.td,fontWeight:600}}>{fmt(Number(d.valor))}</td><td style={{...S.td,color:"#5A6070"}}>{d.observacao||"—"}</td></tr>;})} {desp.length===0&&<tr><td colSpan={4} style={{...S.td,color:"#5A6070",textAlign:"center"}}>Nenhum lançamento</td></tr>}</tbody>
           </table>
@@ -421,13 +372,91 @@ function Financeiro({usuario}) {
       </>}
     </div>
   );
-}function Contas({usuario}) {
+}// ─── FORM CONTAS (fora do componente Contas para evitar re-render) ─────────────
+function FormContas({form,setForm,valF,onValF,grupos,subgrupos,fornecedores,editId,sv,onSalvar,onCancelar}) {
+  return (
+    <div style={{...S.card,marginBottom:24,borderColor:editId?"#3A8FE8":"#FF6B35"}}>
+      <div style={S.cT}>{editId?"✏️ Editar Conta":"+ Nova Conta"}</div>
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
+        <div><label style={S.lbl}>Fornecedor</label>
+          <select style={S.sel} value={form.fornecedor_id} onChange={e=>setForm(f=>({...f,fornecedor_id:e.target.value}))}>
+            <option value="">Selecione…</option>{fornecedores.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+          </select>
+        </div>
+        <div><label style={S.lbl}>Loja</label>
+          <select style={S.sel} value={form.loja_id} onChange={e=>setForm(f=>({...f,loja_id:e.target.value}))}>
+            <option value="">Selecione…</option>
+            {[...LOJAS,{id:"administrativo",nome:"ADMINISTRATIVO"}].map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}
+          </select>
+        </div>
+        <div><label style={S.lbl}>Valor (R$)</label>
+          <input style={{...S.inp,fontFamily:"monospace"}} placeholder="0,00" value={valF} onChange={onValF}/>
+        </div>
+        <div><label style={S.lbl}>Vencimento</label>
+          <input style={S.inp} type="date" value={form.vencimento} onChange={e=>setForm(f=>({...f,vencimento:e.target.value}))}/>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
+        <div><label style={S.lbl}>Grupo</label>
+          <select style={S.sel} value={form.grupo_id} onChange={e=>setForm(f=>({...f,grupo_id:e.target.value,subgrupo_id:""}))}>
+            <option value="">Selecione…</option>{grupos.map(g=><option key={g.id} value={g.id}>{g.nome}</option>)}
+          </select>
+        </div>
+        <div><label style={S.lbl}>Subgrupo</label>
+          <select style={S.sel} value={form.subgrupo_id} onChange={e=>setForm(f=>({...f,subgrupo_id:e.target.value}))} disabled={!form.grupo_id}>
+            <option value="">Selecione…</option>{subgrupos.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
+          </select>
+        </div>
+        <div><label style={S.lbl}>Nº NF / Boleto</label>
+          <input style={S.inp} value={form.numero_nf} onChange={e=>setForm(f=>({...f,numero_nf:e.target.value}))}/>
+        </div>
+        <div><label style={S.lbl}>Conferido por</label>
+          <input style={S.inp} value={form.conferido_por} onChange={e=>setForm(f=>({...f,conferido_por:e.target.value}))}/>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
+        <div><label style={S.lbl}>Forma de Pagamento</label>
+          <select style={S.sel} value={form.forma_pagamento} onChange={e=>setForm(f=>({...f,forma_pagamento:e.target.value}))}>
+            {["PIX","BOLETO","TED/DOC","DINHEIRO","CARTÃO"].map(x=><option key={x}>{x}</option>)}
+          </select>
+        </div>
+        <div><label style={S.lbl}>Data de Chegada</label>
+          <input style={S.inp} type="date" value={form.data_chegada} onChange={e=>setForm(f=>({...f,data_chegada:e.target.value}))}/>
+        </div>
+        <div><label style={S.lbl}>📎 Nota Fiscal</label>
+          <input style={{...S.inp,cursor:"pointer"}} type="file" accept=".pdf,.png,.jpg"/>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"end"}}>
+          <button style={{...S.btn("primary"),flex:1}} onClick={onSalvar} disabled={sv}>
+            {sv?"Salvando…":editId?"Salvar Edição":"Salvar"}
+          </button>
+          {editId&&<button style={S.btn("secondary")} onClick={onCancelar}>Cancelar</button>}
+        </div>
+      </div>
+      {form.forma_pagamento==="PIX"&&(
+        <div style={{marginTop:4}}>
+          <label style={S.lbl}>🔑 Chave PIX</label>
+          <input style={{...S.inp,fontFamily:"monospace"}} placeholder="CPF, e-mail, telefone ou chave aleatória" value={form.chave_pix} onChange={e=>setForm(f=>({...f,chave_pix:e.target.value}))}/>
+        </div>
+      )}
+      {form.forma_pagamento==="BOLETO"&&(
+        <div style={{marginTop:4}}>
+          <label style={S.lbl}>📊 Código de Barras</label>
+          <input style={{...S.inp,fontFamily:"monospace"}} placeholder="Cole ou use o leitor de código de barras" value={form.codigo_barras} onChange={e=>setForm(f=>({...f,codigo_barras:e.target.value}))}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Contas({usuario}) {
   const [contas,setC]=useState([]); const [load,setL]=useState(true); const [show,setShow]=useState(false);
   const [pagId,setPId]=useState(null); const [editId,setEditId]=useState(null);
   const [fSt,setFSt]=useState(""); const [fLj,setFLj]=useState(""); const [sv,setSv]=useState(false); const [arq,setArq]=useState(null);
   const [fornecedores,setForn]=useState([]); const [grupos,setGrupos]=useState([]); const [subgrupos,setSubs]=useState([]);
   const [valF,onValF,numF,setValF]=useMoeda();
-  const [form,setForm]=useState({fornecedor_id:"",loja_id:"",grupo_id:"",subgrupo_id:"",tipo:"",vencimento:"",forma_pagamento:"PIX",numero_nf:"",chave_pix:"",codigo_barras:"",conferido_por:"",data_chegada:""});
+  const FORM_VAZIO={fornecedor_id:"",loja_id:"",grupo_id:"",subgrupo_id:"",tipo:"",vencimento:"",forma_pagamento:"PIX",numero_nf:"",chave_pix:"",codigo_barras:"",conferido_por:"",data_chegada:""};
+  const [form,setForm]=useState(FORM_VAZIO);
   const [fp,setFp]=useState({data_pagamento:hoje(),banco:"BANCO STONE"});
 
   useEffect(()=>{
@@ -436,33 +465,45 @@ function Financeiro({usuario}) {
     supabase.from("grupos_despesa").select("*").eq("ativo",true).then(({data})=>setGrupos(data||[]));
   },[fSt,fLj]);
 
-  useEffect(()=>{ if(form.grupo_id) supabase.from("subgrupos_despesa").select("*").eq("grupo_id",form.grupo_id).then(({data})=>setSubs(data||[])); else setSubs([]); },[form.grupo_id]);
+  useEffect(()=>{
+    if(form.grupo_id) supabase.from("subgrupos_despesa").select("*").eq("grupo_id",form.grupo_id).then(({data})=>setSubs(data||[]));
+    else setSubs([]);
+  },[form.grupo_id]);
 
-  async function carregar(){setL(true); let q=supabase.from("contas_pagar").select("*").order("vencimento",{ascending:true}); if(fSt)q=q.eq("status",fSt); if(fLj)q=q.ilike("loja_id",`%${fLj}%`); const{data}=await q; setC(data||[]); setL(false);}
+  async function carregar(){
+    setL(true);
+    let q=supabase.from("contas_pagar").select("*").order("vencimento",{ascending:true});
+    if(fSt)q=q.eq("status",fSt);
+    if(fLj)q=q.ilike("loja_id",`%${fLj}%`);
+    const{data}=await q; setC(data||[]); setL(false);
+  }
 
-  async function salvarNova(){if(!numF)return; setSv(true);
+  async function salvarNova(){
+    if(!numF)return; setSv(true);
     const forn=fornecedores.find(f=>f.id===Number(form.fornecedor_id));
     const grp=grupos.find(g=>g.id===Number(form.grupo_id));
     const sub=subgrupos.find(s=>s.id===Number(form.subgrupo_id));
     await supabase.from("contas_pagar").insert({
-      fornecedor:forn?.nome||"", loja_id:form.loja_id, grupo:grp?.nome||"", tipo:sub?.nome||form.tipo,
-      valor:numF, vencimento:form.vencimento, forma_pagamento:form.forma_pagamento,
-      numero_nf:form.numero_nf, chave_pix:form.chave_pix, codigo_barras:form.codigo_barras,
+      fornecedor:forn?.nome||"", loja_id:form.loja_id, grupo:grp?.nome||"",
+      tipo:sub?.nome||form.tipo, valor:numF, vencimento:form.vencimento,
+      forma_pagamento:form.forma_pagamento, numero_nf:form.numero_nf,
+      chave_pix:form.chave_pix, codigo_barras:form.codigo_barras,
       conferido_por:form.conferido_por, data_chegada:form.data_chegada||null,
       inserido_por:usuario.nome, status:"PENDENTE",
     });
-    setForm({fornecedor_id:"",loja_id:"",grupo_id:"",subgrupo_id:"",tipo:"",vencimento:"",forma_pagamento:"PIX",numero_nf:"",chave_pix:"",codigo_barras:"",conferido_por:"",data_chegada:""});
-    setValF(""); setShow(false); carregar(); setSv(false);
+    setForm(FORM_VAZIO); setValF(""); setShow(false); carregar(); setSv(false);
   }
 
-  async function salvarEdicao(){if(!numF||!editId)return; setSv(true);
+  async function salvarEdicao(){
+    if(!numF||!editId)return; setSv(true);
     const forn=fornecedores.find(f=>f.id===Number(form.fornecedor_id));
     const grp=grupos.find(g=>g.id===Number(form.grupo_id));
     const sub=subgrupos.find(s=>s.id===Number(form.subgrupo_id));
     await supabase.from("contas_pagar").update({
-      fornecedor:forn?.nome||"", loja_id:form.loja_id, grupo:grp?.nome||"", tipo:sub?.nome||form.tipo,
-      valor:numF, vencimento:form.vencimento, forma_pagamento:form.forma_pagamento,
-      numero_nf:form.numero_nf, chave_pix:form.chave_pix, codigo_barras:form.codigo_barras,
+      fornecedor:forn?.nome||"", loja_id:form.loja_id, grupo:grp?.nome||"",
+      tipo:sub?.nome||form.tipo, valor:numF, vencimento:form.vencimento,
+      forma_pagamento:form.forma_pagamento, numero_nf:form.numero_nf,
+      chave_pix:form.chave_pix, codigo_barras:form.codigo_barras,
       conferido_por:form.conferido_por, data_chegada:form.data_chegada||null,
     }).eq("id",editId);
     setEditId(null); setValF(""); setShow(false); carregar(); setSv(false);
@@ -475,59 +516,29 @@ function Financeiro({usuario}) {
     setShow(true); window.scrollTo({top:0,behavior:"smooth"});
   }
 
-  async function excluir(id){ if(!window.confirm("Excluir esta conta?"))return; await supabase.from("contas_pagar").delete().eq("id",id); carregar();}
+  async function excluir(id){
+    if(!window.confirm("Excluir esta conta?"))return;
+    await supabase.from("contas_pagar").delete().eq("id",id); carregar();
+  }
 
-  async function pagar(id){setSv(true); let url=null;
+  async function pagar(id){
+    setSv(true); let url=null;
     if(arq){const ext=arq.name.split(".").pop(); const path=`comprovantes/${id}.${ext}`; await supabase.storage.from("documentos").upload(path,arq,{upsert:true}); const{data:pub}=supabase.storage.from("documentos").getPublicUrl(path); url=pub.publicUrl;}
     await supabase.from("contas_pagar").update({status:"PAGO",data_pagamento:fp.data_pagamento,banco:fp.banco,...(url&&{comprovante_url:url})}).eq("id",id);
     setPId(null); setArq(null); carregar(); setSv(false);
   }
 
-  const pend=contas.filter(c=>c.status==="PENDENTE"); const pagos=contas.filter(c=>c.status==="PAGO");
+  const pend=contas.filter(c=>c.status==="PENDENTE");
+  const pagos=contas.filter(c=>c.status==="PAGO");
   const contaAtual=contas.find(c=>c.id===pagId);
-
-  const FormContas=()=>(
-    <div style={{...S.card,marginBottom:24,borderColor:editId?"#3A8FE8":"#FF6B35"}}>
-      <div style={S.cT}>{editId?"✏️ Editar Conta":"+ Nova Conta"}</div>
-      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
-        <div><label style={S.lbl}>Fornecedor</label><select style={S.sel} value={form.fornecedor_id} onChange={e=>setForm(f=>({...f,fornecedor_id:e.target.value}))}><option value="">Selecione…</option>{fornecedores.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}</select></div>
-        <div><label style={S.lbl}>Loja</label><select style={S.sel} value={form.loja_id} onChange={e=>setForm(f=>({...f,loja_id:e.target.value}))}><option value="">Selecione…</option>{[...LOJAS,{id:"administrativo",nome:"ADMINISTRATIVO"}].map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}</select></div>
-        <div><label style={S.lbl}>Valor (R$)</label><input style={{...S.inp,fontFamily:"monospace"}} placeholder="0,00" value={valF} onChange={onValF}/></div>
-        <div><label style={S.lbl}>Vencimento</label><input style={S.inp} type="date" value={form.vencimento} onChange={e=>setForm(f=>({...f,vencimento:e.target.value}))}/></div>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
-        <div><label style={S.lbl}>Grupo</label><select style={S.sel} value={form.grupo_id} onChange={e=>setForm(f=>({...f,grupo_id:e.target.value,subgrupo_id:""}))}><option value="">Selecione…</option>{grupos.map(g=><option key={g.id} value={g.id}>{g.nome}</option>)}</select></div>
-        <div><label style={S.lbl}>Subgrupo</label><select style={S.sel} value={form.subgrupo_id} onChange={e=>setForm(f=>({...f,subgrupo_id:e.target.value}))} disabled={!form.grupo_id}><option value="">Selecione…</option>{subgrupos.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
-        <div><label style={S.lbl}>Nº NF / Boleto</label><input style={S.inp} value={form.numero_nf} onChange={e=>setForm(f=>({...f,numero_nf:e.target.value}))}/></div>
-        <div><label style={S.lbl}>Conferido por</label><input style={S.inp} value={form.conferido_por} onChange={e=>setForm(f=>({...f,conferido_por:e.target.value}))}/></div>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
-        <div><label style={S.lbl}>Forma de Pagamento</label>
-          <select style={S.sel} value={form.forma_pagamento} onChange={e=>setForm(f=>({...f,forma_pagamento:e.target.value}))}>
-            {["PIX","BOLETO","TED/DOC","DINHEIRO","CARTÃO"].map(x=><option key={x}>{x}</option>)}
-          </select>
-        </div>
-        <div><label style={S.lbl}>Data de Chegada</label><input style={S.inp} type="date" value={form.data_chegada} onChange={e=>setForm(f=>({...f,data_chegada:e.target.value}))}/></div>
-        <div><label style={S.lbl}>📎 Nota Fiscal</label><input style={{...S.inp,cursor:"pointer"}} type="file" accept=".pdf,.png,.jpg"/></div>
-        <div style={{display:"flex",gap:8,alignItems:"end"}}>
-          <button style={{...S.btn("primary"),flex:1}} onClick={editId?salvarEdicao:salvarNova} disabled={sv}>{sv?"Salvando…":editId?"Salvar Edição":"Salvar"}</button>
-          {editId&&<button style={S.btn("secondary")} onClick={()=>{setEditId(null);setShow(false);setValF("");}}>Cancelar</button>}
-        </div>
-      </div>
-      {(form.forma_pagamento==="PIX")&&(
-        <div><label style={S.lbl}>🔑 Chave PIX (para copiar na hora do pagamento)</label><input style={{...S.inp,fontFamily:"monospace"}} placeholder="CPF, e-mail, telefone ou chave aleatória" value={form.chave_pix} onChange={e=>setForm(f=>({...f,chave_pix:e.target.value}))}/></div>
-      )}
-      {(form.forma_pagamento==="BOLETO")&&(
-        <div><label style={S.lbl}>📊 Código de Barras (use o leitor ou digite)</label><input style={{...S.inp,fontFamily:"monospace",letterSpacing:"0.05em"}} placeholder="000000000000000000000000000000000000000000000" value={form.codigo_barras} onChange={e=>{const v=e.target.value; setForm(f=>({...f,codigo_barras:v}));}}/>
-      )}
-    </div>
-  );
 
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
         <div><h2 style={{fontSize:20,fontWeight:700,margin:0}}>Contas a Pagar</h2><div style={{fontSize:13,color:"#5A6070",marginTop:4}}>Organograma de Pagamentos</div></div>
-        {(usuario.perfil==="admin"||usuario.perfil==="financeiro")&&<button style={S.btn("primary")} onClick={()=>{setShow(!show);setEditId(null);setValF("");}}>+ Nova Conta</button>}
+        {(usuario.perfil==="admin"||usuario.perfil==="financeiro")&&(
+          <button style={S.btn("primary")} onClick={()=>{setShow(!show);setEditId(null);setValF("");setForm(FORM_VAZIO);}}>+ Nova Conta</button>
+        )}
       </div>
       <div style={{...S.g(3),marginBottom:24}}>
         <div style={S.card}><div style={S.cT}>Pendente</div><div style={{...S.kV,color:"#F39C12"}}>{fmt(pend.reduce((s,c)=>s+Number(c.valor),0))}</div><div style={S.kL}>{pend.length} registros</div></div>
@@ -535,7 +546,7 @@ function Financeiro({usuario}) {
         <div style={S.card}><div style={S.cT}>Total</div><div style={S.kV}>{fmt(contas.reduce((s,c)=>s+Number(c.valor),0))}</div><div style={S.kL}>{contas.length} registros</div></div>
       </div>
 
-      {show&&<FormContas/>}
+      {show&&<FormContas form={form} setForm={setForm} valF={valF} onValF={onValF} grupos={grupos} subgrupos={subgrupos} fornecedores={fornecedores} editId={editId} sv={sv} onSalvar={editId?salvarEdicao:salvarNova} onCancelar={()=>{setEditId(null);setShow(false);setValF("");setForm(FORM_VAZIO);}}/>}
 
       {pagId&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
         <div style={{...S.card,width:460,borderColor:"#2ECC71"}}>
@@ -556,7 +567,11 @@ function Financeiro({usuario}) {
             </div>
           </div>}
           <div style={{marginBottom:12}}><label style={S.lbl}>Data do Pagamento</label><input style={S.inp} type="date" value={fp.data_pagamento} onChange={e=>setFp(f=>({...f,data_pagamento:e.target.value}))}/></div>
-          <div style={{marginBottom:12}}><label style={S.lbl}>Banco</label><select style={S.sel} value={fp.banco} onChange={e=>setFp(f=>({...f,banco:e.target.value}))}>{["BANCO STONE","BANCO IFOOD","BANCO DO BRASIL","CAIXA","ITAÚ","BRADESCO","SICOOB"].map(b=><option key={b}>{b}</option>)}</select></div>
+          <div style={{marginBottom:12}}><label style={S.lbl}>Banco</label>
+            <select style={S.sel} value={fp.banco} onChange={e=>setFp(f=>({...f,banco:e.target.value}))}>
+              {["BANCO STONE","BANCO IFOOD","BANCO DO BRASIL","CAIXA","ITAÚ","BRADESCO","SICOOB"].map(b=><option key={b}>{b}</option>)}
+            </select>
+          </div>
           <div style={{marginBottom:16}}><label style={S.lbl}>📎 Comprovante</label><input style={{...S.inp,cursor:"pointer"}} type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={e=>setArq(e.target.files[0])}/></div>
           <div style={{display:"flex",gap:8}}>
             <button style={{...S.btn("primary"),flex:1}} onClick={()=>pagar(pagId)} disabled={sv}>{sv?"Salvando…":"Confirmar Pago"}</button>
@@ -571,7 +586,7 @@ function Financeiro({usuario}) {
           <input style={{...S.inp,width:200}} placeholder="Filtrar por loja…" value={fLj} onChange={e=>setFLj(e.target.value)}/>
         </div>
         {load?<div style={{color:"#5A6070"}}>Carregando…</div>:(
-        <table style={S.tbl}><thead><tr>{["Fornecedor","Loja","Grupo","Valor","Vencimento","Forma Pgto","Inserido por","Status","Ações"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+        <table style={S.tbl}><thead><tr>{["Fornecedor","Loja","Grupo","Valor","Vencimento","Forma","Inserido por","Status","Ações"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
         <tbody>{contas.map(c=>(
           <tr key={c.id}>
             <td style={{...S.td,fontWeight:600}}>{c.fornecedor}</td>
@@ -583,7 +598,7 @@ function Financeiro({usuario}) {
             <td style={{...S.td,fontSize:11,color:"#5A6070"}}>{c.inserido_por||"—"}</td>
             <td style={S.td}><span style={S.badge(c.status==="PAGO"?"#2ECC71":"#F39C12")}>{c.status}</span></td>
             <td style={S.td}>
-              <div style={{display:"flex",gap:6}}>
+              <div style={{display:"flex",gap:4}}>
                 {c.status==="PENDENTE"&&usuario.perfil==="admin"&&<button style={{...S.btn("primary"),padding:"4px 8px",fontSize:11}} onClick={()=>setPId(c.id)}>Pagar</button>}
                 {c.status==="PAGO"&&<span style={{fontSize:11,color:"#2ECC71"}}>✓ {c.data_pagamento}</span>}
                 <button style={{...S.btn("secondary"),padding:"4px 8px",fontSize:11}} onClick={()=>abrirEdicao(c)}>✏️</button>
@@ -688,19 +703,57 @@ function Financeiro({usuario}) {
 }
 
 function Config({usuario}) {
-  const [users,setU]=useState([]); const [precos,setP]=useState([]); const [show,setShow]=useState(false); const [nu,setNu]=useState({nome:"",email:"",perfil:"financeiro",loja_id:"",senha:""}); const [sv,setSv]=useState(false); const [msg,setMsg]=useState("");
+  const [users,setU]=useState([]); const [precos,setP]=useState([]); const [show,setShow]=useState(false);
+  const [nu,setNu]=useState({nome:"",email:"",perfil:"financeiro",loja_id:"",senha:""});
+  const [sv,setSv]=useState(false); const [msg,setMsg]=useState("");
   useEffect(()=>{ supabase.from("usuarios").select("*").then(({data})=>setU(data||[])); supabase.from("matriz_precos").select("*").eq("ativo",true).then(({data})=>setP(data||[])); },[]);
-  async function criar(){if(!nu.email||!nu.senha||!nu.nome)return; setSv(true); setMsg(""); const{data:sd,error:se}=await supabase.auth.signUp({email:nu.email,password:nu.senha}); if(se){setMsg("Erro: "+se.message); setSv(false); return;} if(sd?.user)await supabase.from("usuarios").insert({id:sd.user.id,nome:nu.nome,email:nu.email,perfil:nu.perfil,loja_id:nu.loja_id||null}); setMsg("✅ Usuário criado!"); setNu({nome:"",email:"",perfil:"financeiro",loja_id:"",senha:""}); supabase.from("usuarios").select("*").then(({data})=>setU(data||[])); setSv(false);}
+  async function criar(){
+    if(!nu.email||!nu.senha||!nu.nome)return; setSv(true); setMsg("");
+    const{data:sd,error:se}=await supabase.auth.signUp({email:nu.email,password:nu.senha});
+    if(se){setMsg("Erro: "+se.message); setSv(false); return;}
+    if(sd?.user)await supabase.from("usuarios").insert({id:sd.user.id,nome:nu.nome,email:nu.email,perfil:nu.perfil,loja_id:nu.loja_id||null});
+    setMsg("✅ Usuário criado!"); setNu({nome:"",email:"",perfil:"financeiro",loja_id:"",senha:""});
+    supabase.from("usuarios").select("*").then(({data})=>setU(data||[])); setSv(false);
+  }
   return (
     <div>
       <h2 style={{fontSize:20,fontWeight:700,marginBottom:20}}>Configurações</h2>
       <div style={{...S.g(2),marginBottom:24}}>
         <div style={S.card}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={S.cT}>👥 Usuários</div><button style={{...S.btn("primary"),padding:"4px 10px",fontSize:12}} onClick={()=>setShow(!show)}>+ Novo</button></div>
-          {show&&<div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}><div><label style={S.lbl}>Nome</label><input style={S.inp} value={nu.nome} onChange={e=>setNu(f=>({...f,nome:e.target.value}))}/></div><div><label style={S.lbl}>E-mail</label><input style={S.inp} type="email" value={nu.email} onChange={e=>setNu(f=>({...f,email:e.target.value}))}/></div><div><label style={S.lbl}>Senha inicial</label><input style={S.inp} type="password" value={nu.senha} onChange={e=>setNu(f=>({...f,senha:e.target.value}))}/></div><div><label style={S.lbl}>Perfil</label><select style={S.sel} value={nu.perfil} onChange={e=>setNu(f=>({...f,perfil:e.target.value}))}>{["admin","financeiro","producao","compras","gerente_loja"].map(p=><option key={p}>{p}</option>)}</select></div>{nu.perfil==="gerente_loja"&&<div><label style={S.lbl}>Loja</label><select style={S.sel} value={nu.loja_id} onChange={e=>setNu(f=>({...f,loja_id:e.target.value}))}><option value="">Selecione…</option>{LOJAS.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}</select></div>}</div>{msg&&<div style={{fontSize:12,color:"#2ECC71",marginBottom:8}}>{msg}</div>}<button style={{...S.btn("primary"),width:"100%"}} onClick={criar} disabled={sv}>{sv?"Criando…":"Criar Usuário"}</button></div>}
-          <table style={S.tbl}><thead><tr>{["Nome","Perfil","Loja"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{users.map(u=><tr key={u.id}><td style={{...S.td,fontWeight:600}}>{u.nome}</td><td style={S.td}><span style={S.badge(u.perfil==="admin"?"#FF6B35":"#3A8FE8")}>{u.perfil}</span></td><td style={{...S.td,color:"#5A6070"}}>{u.loja_id||"Todas"}</td></tr>)}{users.length===0&&<tr><td colSpan={3} style={{...S.td,color:"#5A6070"}}>Nenhum usuário ainda</td></tr>}</tbody></table>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={S.cT}>👥 Usuários</div>
+            <button style={{...S.btn("primary"),padding:"4px 10px",fontSize:12}} onClick={()=>setShow(!show)}>+ Novo</button>
+          </div>
+          {show&&<div style={{background:"#0F1117",borderRadius:8,padding:12,marginBottom:12}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+              <div><label style={S.lbl}>Nome</label><input style={S.inp} value={nu.nome} onChange={e=>setNu(f=>({...f,nome:e.target.value}))}/></div>
+              <div><label style={S.lbl}>E-mail</label><input style={S.inp} type="email" value={nu.email} onChange={e=>setNu(f=>({...f,email:e.target.value}))}/></div>
+              <div><label style={S.lbl}>Senha inicial</label><input style={S.inp} type="password" value={nu.senha} onChange={e=>setNu(f=>({...f,senha:e.target.value}))}/></div>
+              <div><label style={S.lbl}>Perfil</label>
+                <select style={S.sel} value={nu.perfil} onChange={e=>setNu(f=>({...f,perfil:e.target.value}))}>
+                  {["admin","financeiro","producao","compras","gerente_loja"].map(p=><option key={p}>{p}</option>)}
+                </select>
+              </div>
+              {nu.perfil==="gerente_loja"&&<div><label style={S.lbl}>Loja</label>
+                <select style={S.sel} value={nu.loja_id} onChange={e=>setNu(f=>({...f,loja_id:e.target.value}))}>
+                  <option value="">Selecione…</option>{LOJAS.map(l=><option key={l.id} value={l.id}>{l.nome}</option>)}
+                </select>
+              </div>}
+            </div>
+            {msg&&<div style={{fontSize:12,color:"#2ECC71",marginBottom:8}}>{msg}</div>}
+            <button style={{...S.btn("primary"),width:"100%"}} onClick={criar} disabled={sv}>{sv?"Criando…":"Criar Usuário"}</button>
+          </div>}
+          <table style={S.tbl}><thead><tr>{["Nome","Perfil","Loja"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>{users.map(u=><tr key={u.id}><td style={{...S.td,fontWeight:600}}>{u.nome}</td><td style={S.td}><span style={S.badge(u.perfil==="admin"?"#FF6B35":"#3A8FE8")}>{u.perfil}</span></td><td style={{...S.td,color:"#5A6070"}}>{u.loja_id||"Todas"}</td></tr>)}{users.length===0&&<tr><td colSpan={3} style={{...S.td,color:"#5A6070"}}>Nenhum usuário ainda</td></tr>}</tbody>
+          </table>
         </div>
-        <div style={S.card}><div style={S.cT}>🥩 Matriz de Preços</div><div style={{maxHeight:320,overflowY:"auto"}}><table style={S.tbl}><thead><tr>{["Item","Valor","Un."].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{precos.map(p=><tr key={p.id}><td style={{...S.td,fontSize:12}}>{p.item}</td><td style={{...S.td,fontWeight:600}}>{fmt(Number(p.valor))}</td><td style={{...S.td,color:"#5A6070"}}>{p.unidade}</td></tr>)}</tbody></table></div></div>
+        <div style={S.card}><div style={S.cT}>🥩 Matriz de Preços</div>
+          <div style={{maxHeight:320,overflowY:"auto"}}>
+            <table style={S.tbl}><thead><tr>{["Item","Valor","Un."].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+            <tbody>{precos.map(p=><tr key={p.id}><td style={{...S.td,fontSize:12}}>{p.item}</td><td style={{...S.td,fontWeight:600}}>{fmt(Number(p.valor))}</td><td style={{...S.td,color:"#5A6070"}}>{p.unidade}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -715,17 +768,37 @@ export default function App() {
   const perfil=usuario.perfil||"admin";
   const menu=MENU.filter(m=>(PERFIS_MENU[perfil]||["dashboard"]).includes(m.id));
   const cur=menu.find(m=>m.id===pagina)||menu[0];
-  const render=()=>{ switch(pagina){case"dashboard":return<Dashboard usuario={usuario}/>; case"producao":return<Producao usuario={usuario}/>; case"financeiro":return<Financeiro usuario={usuario}/>; case"contas":return<Contas usuario={usuario}/>; case"cadastros":return<Cadastros usuario={usuario}/>; case"config":return<Config usuario={usuario}/>; default:return<div style={{...S.card,color:"#5A6070",marginTop:20}}>Módulo em desenvolvimento.</div>;} };
+  const render=()=>{ switch(pagina){
+    case"dashboard":  return<Dashboard usuario={usuario}/>;
+    case"producao":   return<Producao usuario={usuario}/>;
+    case"financeiro": return<Financeiro usuario={usuario}/>;
+    case"contas":     return<Contas usuario={usuario}/>;
+    case"cadastros":  return<Cadastros usuario={usuario}/>;
+    case"config":     return<Config usuario={usuario}/>;
+    default: return<div style={{...S.card,color:"#5A6070",marginTop:20}}>Módulo em desenvolvimento.</div>;
+  }};
   return (
     <div style={S.app}>
       <div style={S.sb}>
-        <div style={S.logo}><div style={{fontSize:22,marginBottom:6}}>🥩</div><div style={{fontSize:14,fontWeight:700,color:"#FF6B35",textTransform:"uppercase",letterSpacing:"0.05em"}}>Picanha Mix</div><div style={{fontSize:11,color:"#5A6070",marginTop:2}}>Sistema de Gestão</div></div>
+        <div style={S.logo}>
+          <div style={{fontSize:22,marginBottom:6}}>🥩</div>
+          <div style={{fontSize:14,fontWeight:700,color:"#FF6B35",textTransform:"uppercase",letterSpacing:"0.05em"}}>Picanha Mix</div>
+          <div style={{fontSize:11,color:"#5A6070",marginTop:2}}>Sistema de Gestão</div>
+        </div>
         {menu.map(m=><div key={m.id} style={S.nav(pagina===m.id)} onClick={()=>setP(m.id)}><span>{m.icon}</span><span>{m.label}</span></div>)}
         <div style={{flex:1}}/>
-        <div style={{padding:"16px 20px",borderTop:"1px solid #252A35"}}><div style={{fontSize:12,color:"#5A6070"}}>Logado como</div><div style={{fontSize:13,fontWeight:600}}>{usuario.nome}</div><div style={{fontSize:11,color:"#FF6B35",marginBottom:8}}>{perfil}</div><button style={{...S.btn("ghost"),padding:"4px 0",fontSize:12}} onClick={logout}>Sair →</button></div>
+        <div style={{padding:"16px 20px",borderTop:"1px solid #252A35"}}>
+          <div style={{fontSize:12,color:"#5A6070"}}>Logado como</div>
+          <div style={{fontSize:13,fontWeight:600}}>{usuario.nome}</div>
+          <div style={{fontSize:11,color:"#FF6B35",marginBottom:8}}>{perfil}</div>
+          <button style={{...S.btn("ghost"),padding:"4px 0",fontSize:12}} onClick={logout}>Sair →</button>
+        </div>
       </div>
       <div style={S.main}>
-        <div style={S.top}><div style={{fontSize:14,color:"#5A6070"}}>{cur?.icon} {cur?.label}</div><div style={{fontSize:13,color:"#5A6070"}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div></div>
+        <div style={S.top}>
+          <div style={{fontSize:14,color:"#5A6070"}}>{cur?.icon} {cur?.label}</div>
+          <div style={{fontSize:13,color:"#5A6070"}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
+        </div>
         <div style={S.cont}>{render()}</div>
       </div>
     </div>
